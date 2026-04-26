@@ -54,6 +54,8 @@ class PairingAgent:
             GLib.timeout_add_seconds(30, self._on_timeout)
             context = GLib.MainContext.default()
 
+            # Pump the GLib event loop manually so ConfirmPairing/Cancel D-Bus calls can arrive
+            # and set _confirmation_result without deadlocking the main loop.
             while self._confirmation_result is None:
                 context.iteration(may_block=True)
 

@@ -11,6 +11,7 @@ from ancs4linux.observer.ancs.constants import (
 
 
 def parse_string(data: bytearray) -> Tuple[str, bytearray]:
+    # Wire format: AttributeID(B) + length(H) + utf8 bytes. Caller already knows the attribute type, so type is consumed but ignored.
     (type, size), data = struct.unpack("<BH", data[:3]), data[3:]
     bytes, data = data[:size], data[size:]
     return bytes.decode("utf8", errors="replace"), data
@@ -24,6 +25,7 @@ class Notification:
 
     @classmethod
     def parse(cls, data: bytes) -> "Notification":
+        # Fields: EventID, EventFlags, CategoryID (ignored), CategoryCount (ignored), NotificationUID
         [type, flags, _, _, id] = struct.unpack("<BBBBI", bytearray(data))
         return cls(id=id, type=type, flags=flags)
 
