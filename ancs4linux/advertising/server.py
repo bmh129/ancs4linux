@@ -3,7 +3,7 @@ from typing import List
 from ancs4linux.advertising.advertisement import AdvertisingManager
 from ancs4linux.advertising.pairing import PairingManager
 from ancs4linux.common.apis import AdvertisingAPI
-from ancs4linux.common.dbus import Str, dbus_interface, dbus_signal
+from ancs4linux.common.dbus import Bool, Str, dbus_interface, dbus_signal
 
 
 @dbus_interface(AdvertisingAPI.interface)
@@ -29,6 +29,9 @@ class AdvertisingServer(AdvertisingAPI):
     def DisablePairing(self) -> None:
         self.pairing_manager.disable()
 
+    def ConfirmPairing(self, confirmed: Bool) -> None:
+        self.pairing_manager.set_confirmation(confirmed)
+
     @dbus_signal
-    def PairingCode(self, pin: Str) -> None:
+    def PairingConfirmationRequested(self, pin: Str) -> None:
         pass
