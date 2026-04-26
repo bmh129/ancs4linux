@@ -1,3 +1,10 @@
+from typing import Optional
+
+import gi
+
+gi.require_version("GLib", "2.0")
+from gi.repository import GLib
+
 from ancs4linux.common.apis import AdvertisingAPI, PairingAgentAPI
 from ancs4linux.common.dbus import (
     ObjPath,
@@ -15,6 +22,8 @@ from ancs4linux.common.external_apis import BluezAgentManagerAPI
 class PairingAgent:
     def __init__(self, server: AdvertisingAPI):
         self.server = server
+        self._pending = False
+        self._confirmation_result: Optional[bool] = None
 
     def Release(self) -> None:
         pass
@@ -32,7 +41,35 @@ class PairingAgent:
         raise PairingRejected
 
     def RequestConfirmation(self, device: ObjPath, passkey: UInt32) -> None:
-        self.server.emit_pairing_code(str(int(passkey)))
+        if self._pending:
+            raise PairingRejected
+
+        self._pending = True
+        self._confirmation_result = None
+
+        try:
+            passkey_str = "{:06d}".format(int(passkey))
+            self.server.emit_pairing_confirmation_requested(passkey_str)
+
+            GLib.timeout_add_seconds(30, self._on_timeout)
+            context = GLib.MainContext.default()
+
+            while self._confirmation_result is None:
+                context.iteration(may_block=True)
+
+            if not self._confirmation_result:
+                raise PairingRejected
+        finally:
+            self._pending = False
+
+    def _on_timeout(self) -> bool:
+        if self._confirmation_result is None:
+            self._confirmation_result = False
+        return False
+
+    def set_confirmation(self, confirmed: bool) -> None:
+        if self._pending and self._confirmation_result is None:
+            self._confirmation_result = confirmed
 
     def RequestAuthorization(self, device: ObjPath) -> None:
         raise PairingRejected
@@ -41,7 +78,8 @@ class PairingAgent:
         raise PairingRejected
 
     def Cancel(self) -> None:
-        pass
+        if self._pending and self._confirmation_result is None:
+            self._confirmation_result = False
 
 
 class PairingManager:
@@ -49,9 +87,15 @@ class PairingManager:
         self.enabled = False
         self.enabled_automatically = False
         self.agent_manager = BluezAgentManagerAPI.connect()
+        self.agent: Optional[PairingAgent] = None
 
     def register(self, server: AdvertisingAPI) -> None:
-        SystemBus().publish_object(PairingAgentAPI.path, PairingAgent(server))
+        self.agent = PairingAgent(server)
+        SystemBus().publish_object(PairingAgentAPI.path, self.agent)
+
+    def set_confirmation(self, confirmed: bool) -> None:
+        if self.agent is not None:
+            self.agent.set_confirmation(confirmed)
 
     def enable(self) -> None:
         if self.enabled:
