@@ -99,7 +99,7 @@ ancs4linux-ctl enable-advertising --hci-address="$address" --name="my-laptop"
 - [ ] Write a systemd user service drop-in (or wrapper script) that runs
       `enable-advertising` automatically after `ancs4linux-advertising.service`
       starts, so no manual command is needed after login.
-- [ ] Test and document the `autorun/install.sh` path for Fedora Silverblue so
+- [x] Test and document the `autorun/install.sh` path for Fedora Silverblue so
       the three services start automatically via systemd on boot/login.
 - [ ] Investigate whether `rpm-ostree` layering or a Toolbox/Distrobox container
       is the better long-term packaging approach for Silverblue.
