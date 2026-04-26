@@ -124,6 +124,25 @@ ExecStart=$ENV_BIN/ancs4linux-desktop-integration
 WantedBy=default.target
 EOF
 
+# ── SELinux file context (Fedora Silverblue) ─────────────────────────────────
+# Binaries in the user home directory carry user_home_t by default, which
+# systemd (running as root) cannot execute. Relabel the entire conda env so
+# system services can exec the binaries and load their shared libraries.
+if [ -d /sys/fs/selinux ]; then
+    ENV_ROOT="$(dirname "$ENV_BIN")"
+    info "Configuring SELinux file context for conda env ($ENV_ROOT)..."
+    if command -v semanage &>/dev/null; then
+        # -a adds the rule; if it already exists, -m modifies it instead
+        semanage fcontext -a -t bin_t "${ENV_ROOT}(/.*)?" 2>/dev/null || \
+            semanage fcontext -m -t bin_t "${ENV_ROOT}(/.*)?"
+        restorecon -Rv "$ENV_ROOT"
+    else
+        info "semanage not found — using chcon (not persistent across SELinux relabel)."
+        info "Install policycoreutils-python-utils for a persistent fix."
+        chcon -R -t bin_t "$ENV_ROOT"
+    fi
+fi
+
 # ── Enable and start ──────────────────────────────────────────────────────────
 info "Reloading systemd daemon..."
 systemctl daemon-reload
