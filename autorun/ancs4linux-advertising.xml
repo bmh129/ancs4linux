@@ -9,6 +9,9 @@
 
   <policy group="ancs4linux">
     <allow send_destination="ancs4linux.Advertising"
+           send_interface="org.freedesktop.DBus.Introspectable"
+           send_member="Introspect"/>
+    <allow send_destination="ancs4linux.Advertising"
            send_interface="ancs4linux.Advertising"
            send_member="GetAllHci"/>
     <allow send_destination="ancs4linux.Advertising"

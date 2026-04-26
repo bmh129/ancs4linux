@@ -8,7 +8,7 @@ It uses Apple Notification Center Service (ANCS) - the same protocol that smartw
 
 ## Running
 
-The project consists of many daemons meant to be running in background. For Ubuntu 20.04:
+### Ubuntu 20.04 (original instructions)
 
 ```bash
 sudo apt-get install -y libgirepository1.0-dev
@@ -18,18 +18,91 @@ systemctl --user daemon-reload
 systemctl --user start ancs4linux-desktop-integration.service
 ```
 
-Once all services (`ancs4linux-{advertising,observer,desktop-integration}`) are loaded, it's time to pair your phone. If you previously paired the devices, unpair them on both ends (remove them from known device list). Then run:
+### Fedora Silverblue (manual setup)
+
+`gobject-introspection` is already present in the Silverblue base image. Install
+the Python bindings and project dependencies in a conda environment:
 
 ```bash
-# Assuming you have 1 Bluetooth HCI:
-address=$(ancs4linux-ctl get-all-hci | jq -r '.[0]')
-ancs4linux-ctl enable-advertising --hci-address $address --name MyName
-# This may take 30 seconds... Do not attempt to connect until it finishes.
+conda create -n ancs4linux python=3.11
+conda activate ancs4linux
+conda install -c conda-forge pygobject
+pip install -e .
 ```
 
-On your mobile device, open Settings -> Bluetooth. You should see a `MyName` device. Try connecting to it!
+Install the D-Bus policy files and reload the bus:
 
-By default, ancs4linux hijacks the pairing process so that the phone won't be allowed to redirect its audio to the PC. You can control this hijack via `ancs4linux-ctl {enable,disable}-pairing`.
+```bash
+sudo cp autorun/ancs4linux-advertising.xml /etc/dbus-1/system.d/ancs4linux-advertising.conf
+sudo cp autorun/ancs4linux-observer.xml    /etc/dbus-1/system.d/ancs4linux-observer.conf
+sudo systemctl reload dbus
+```
+
+Add your user to the `ancs4linux` group, then log out and back in:
+
+```bash
+sudo groupadd -f ancs4linux
+sudo usermod -a -G ancs4linux $USER
+```
+
+Start the three services manually (each in its own terminal, with the conda
+environment activated):
+
+```bash
+# Terminal 1 — system bus, requires root
+sudo $(which ancs4linux-observer)
+
+# Terminal 2 — system bus, requires root
+sudo $(which ancs4linux-advertising)
+
+# Terminal 3 — session bus, runs as your user
+ancs4linux-desktop-integration
+```
+
+### Pairing your iPhone (first time)
+
+If the devices were previously paired outside of ancs4linux, unpair them on
+both ends first:
+
+```bash
+bluetoothctl remove <MAC>   # find the MAC with: bluetoothctl devices
+```
+
+On iPhone: Settings → Bluetooth → tap ⓘ next to the laptop → Forget This Device.
+
+Then start advertising:
+
+```bash
+address=$(ancs4linux-ctl get-all-hci | python3 -c "import sys,json; print(json.load(sys.stdin)[0])")
+ancs4linux-ctl enable-advertising --hci-address="$address" --name="my-laptop"
+# This may take 30 seconds. Do not attempt to connect until it finishes.
+```
+
+On your iPhone, open Settings → Bluetooth. Tap `my-laptop` when it appears. A
+desktop notification with **Confirm** and **Deny** buttons will appear — confirm
+only if the passkey shown on the iPhone matches. Once paired, the iPhone will
+warn you that notifications will be forwarded to the laptop.
+
+### Starting advertising after a reboot (already paired)
+
+Re-pairing is not needed after the first time. Run `enable-advertising` once
+per session and the iPhone will reconnect silently:
+
+```bash
+conda activate ancs4linux
+address=$(ancs4linux-ctl get-all-hci | python3 -c "import sys,json; print(json.load(sys.stdin)[0])")
+ancs4linux-ctl enable-advertising --hci-address="$address" --name="my-laptop"
+```
+
+## TODO
+
+- [ ] Write a systemd user service drop-in (or wrapper script) that runs
+      `enable-advertising` automatically after `ancs4linux-advertising.service`
+      starts, so no manual command is needed after login.
+- [ ] Test and document the `autorun/install.sh` path for Fedora Silverblue so
+      the three services start automatically via systemd on boot/login.
+- [ ] Investigate whether `rpm-ostree` layering or a Toolbox/Distrobox container
+      is the better long-term packaging approach for Silverblue.
 
 ## Integration
 
