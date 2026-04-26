@@ -106,8 +106,8 @@ ExecStart=$ENV_BIN/ancs4linux-advertising
 WantedBy=multi-user.target
 EOF
 
-# ── User service file ─────────────────────────────────────────────────────────
-info "Writing user service file to /etc/systemd/user/..."
+# ── User service files ────────────────────────────────────────────────────────
+info "Writing user service files to /etc/systemd/user/..."
 mkdir -p /etc/systemd/user
 
 cat > /etc/systemd/user/ancs4linux-desktop-integration.service <<EOF
@@ -143,6 +143,35 @@ if [ -d /sys/fs/selinux ]; then
     fi
 fi
 
+# Wrapper script in /etc/ancs4linux/ (writable on Silverblue, unlike /usr/local).
+# Detects the first HCI address at runtime; reads an optional device name from
+# ~/.config/ancs4linux/advertising.env (ANCS4LINUX_DEVICE_NAME=my-laptop).
+info "Writing enable-advertising wrapper script..."
+mkdir -p /etc/ancs4linux
+cat > /etc/ancs4linux/enable-advertising <<EOF
+#!/bin/bash
+set -euo pipefail
+addr="\$($ENV_BIN/ancs4linux-ctl get-all-hci | python3 -c 'import sys,json; print(json.load(sys.stdin)[0])')"
+exec "$ENV_BIN/ancs4linux-ctl" enable-advertising --hci-address="\$addr" --name="\${ANCS4LINUX_DEVICE_NAME:-\$(hostname -s)}"
+EOF
+chmod 755 /etc/ancs4linux/enable-advertising
+
+cat > /etc/systemd/user/ancs4linux-enable-advertising.service <<EOF
+[Unit]
+Description=Enable ancs4linux Bluetooth advertising
+After=ancs4linux-desktop-integration.service
+Wants=ancs4linux-desktop-integration.service
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/etc/ancs4linux/enable-advertising
+EnvironmentFile=-%h/.config/ancs4linux/advertising.env
+
+[Install]
+WantedBy=default.target
+EOF
+
 # ── Enable and start ──────────────────────────────────────────────────────────
 info "Reloading systemd daemon..."
 systemctl daemon-reload
@@ -153,15 +182,21 @@ systemctl enable ancs4linux-advertising.service
 systemctl restart ancs4linux-observer.service
 systemctl restart ancs4linux-advertising.service
 
-info "Enabling desktop-integration for all users..."
+info "Enabling user services for all users..."
 systemctl --global enable ancs4linux-desktop-integration.service
+systemctl --global enable ancs4linux-enable-advertising.service
 
 cat <<'MSG'
 
-System services are running. Start the desktop integration for your current
-session with:
+System services are running. Start the user services for your current session:
 
   systemctl --user daemon-reload
   systemctl --user start ancs4linux-desktop-integration.service
+  systemctl --user start ancs4linux-enable-advertising.service
+
+To use a custom Bluetooth device name instead of the system hostname, create
+~/.config/ancs4linux/advertising.env containing:
+
+  ANCS4LINUX_DEVICE_NAME=my-laptop
 
 MSG

@@ -18,7 +18,7 @@ systemctl --user daemon-reload
 systemctl --user start ancs4linux-desktop-integration.service
 ```
 
-### Fedora Silverblue (manual setup)
+### Fedora Silverblue
 
 `gobject-introspection` is already present in the Silverblue base image. Install
 the Python bindings and project dependencies in a conda environment:
@@ -30,33 +30,28 @@ conda install -c conda-forge pygobject
 pip install -e .
 ```
 
-Install the D-Bus policy files and reload the bus:
+Then run the install script (requires sudo). It sets up D-Bus policy files,
+creates the `ancs4linux` group, writes systemd service files to writable
+locations, configures SELinux file contexts, and enables everything:
 
 ```bash
-sudo cp autorun/ancs4linux-advertising.xml /etc/dbus-1/system.d/ancs4linux-advertising.conf
-sudo cp autorun/ancs4linux-observer.xml    /etc/dbus-1/system.d/ancs4linux-observer.conf
-sudo systemctl reload dbus
+sudo autorun/install.sh
 ```
 
-Add your user to the `ancs4linux` group, then log out and back in:
+Start the user services for your current session (future logins start them
+automatically):
 
 ```bash
-sudo groupadd -f ancs4linux
-sudo usermod -a -G ancs4linux $USER
+systemctl --user daemon-reload
+systemctl --user start ancs4linux-desktop-integration.service
+systemctl --user start ancs4linux-enable-advertising.service
 ```
 
-Start the three services manually (each in its own terminal, with the conda
-environment activated):
+By default the Bluetooth device name is your system hostname. To use a custom
+name, create `~/.config/ancs4linux/advertising.env` before starting the service:
 
-```bash
-# Terminal 1 — system bus, requires root
-sudo $(which ancs4linux-observer)
-
-# Terminal 2 — system bus, requires root
-sudo $(which ancs4linux-advertising)
-
-# Terminal 3 — session bus, runs as your user
-ancs4linux-desktop-integration
+```
+ANCS4LINUX_DEVICE_NAME=my-laptop
 ```
 
 ### Pairing your iPhone (first time)
@@ -85,18 +80,13 @@ warn you that notifications will be forwarded to the laptop.
 
 ### Starting advertising after a reboot (already paired)
 
-Re-pairing is not needed after the first time. Run `enable-advertising` once
-per session and the iPhone will reconnect silently:
-
-```bash
-conda activate ancs4linux
-address=$(ancs4linux-ctl get-all-hci | python3 -c "import sys,json; print(json.load(sys.stdin)[0])")
-ancs4linux-ctl enable-advertising --hci-address="$address" --name="my-laptop"
-```
+Re-pairing is not needed after the first time. After installing via
+`autorun/install.sh`, advertising is enabled automatically at login — no
+manual steps needed.
 
 ## TODO
 
-- [ ] Write a systemd user service drop-in (or wrapper script) that runs
+- [x] Write a systemd user service drop-in (or wrapper script) that runs
       `enable-advertising` automatically after `ancs4linux-advertising.service`
       starts, so no manual command is needed after login.
 - [x] Test and document the `autorun/install.sh` path for Fedora Silverblue so
