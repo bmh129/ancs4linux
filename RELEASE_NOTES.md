@@ -1,5 +1,30 @@
 # Release Notes
 
+## Fedora Silverblue support
+
+### Automated install via `autorun/install.sh`
+
+The install script now works on Fedora Silverblue. It writes systemd service
+files to `/etc/systemd/system/` and `/etc/systemd/user/` (the writable
+locations on an immutable OS), detects the conda environment automatically, and
+configures SELinux file contexts so system services can execute binaries in the
+user home directory.
+
+### Automatic Bluetooth advertising at login
+
+A new user service (`ancs4linux-enable-advertising.service`) runs
+`enable-advertising` automatically after `ancs4linux-desktop-integration`
+starts, so the iPhone reconnects silently on every login without any manual
+steps. The Bluetooth device name defaults to the system hostname and can be
+overridden via `~/.config/ancs4linux/advertising.env`.
+
+### Apostrophe display fix
+
+Notification titles and bodies containing apostrophes were displayed as the
+literal string `&#x27;` by some notification daemons. The HTML escaping now
+uses `quote=False`, which still protects against Pango markup injection via
+`&`, `<`, and `>` but leaves `'` and `"` unmodified.
+
 ## Security fixes (fork of pzmarzly/ancs4linux)
 
 This fork applies three security fixes to the original ancs4linux project.
