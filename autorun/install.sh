@@ -119,6 +119,8 @@ After=bluetooth.target
 [Service]
 Type=simple
 ExecStart=$ENV_BIN/ancs4linux-desktop-integration
+Restart=on-failure
+RestartSec=5
 
 [Install]
 WantedBy=default.target
