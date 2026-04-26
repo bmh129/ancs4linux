@@ -85,10 +85,14 @@ class AdvertisingAPI(ABC):
     def DisablePairing(self) -> None:
         pass
 
-    def emit_pairing_code(self, pin: str) -> None:
-        self.PairingCode(pin)
+    @abstractmethod
+    def ConfirmPairing(self, confirmed: Bool) -> None:
+        pass
 
-    PairingCode: Signal
+    def emit_pairing_confirmation_requested(self, pin: str) -> None:
+        self.PairingConfirmationRequested(pin)
+
+    PairingConfirmationRequested: Signal
 
 
 class PairingAgentAPI(ABC):

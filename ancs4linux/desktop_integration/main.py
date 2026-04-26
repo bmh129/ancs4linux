@@ -1,3 +1,4 @@
+import html
 import logging
 from typing import Dict, Optional
 
@@ -14,6 +15,7 @@ advertising_api: AdvertisingAPI
 observer_api: ObserverAPI
 notification_timeout: int
 notifications: Dict[int, "Notification"] = {}
+pairing_notification_id: int = 0
 
 
 class Notification:
@@ -33,8 +35,8 @@ class Notification:
             f"{data.app_name} ({data.device_name})",
             UInt32(self.host_id),
             "",
-            data.title,
-            data.body,
+            html.escape(data.title),
+            html.escape(data.body),
             actions,
             [],
             Int32(notification_timeout),
@@ -58,16 +60,19 @@ class Notification:
             )
 
 
-def pairing_code(pin: str) -> None:
-    notification_api.Notify(
-        "ancs4linux",
-        UInt32(0),
-        "",
-        "Pairing initiated",
-        f"Pair if PIN is {pin}",
-        [],
-        [],
-        Int32(30000),
+def pairing_confirmation_requested(pin: str) -> None:
+    global pairing_notification_id
+    pairing_notification_id = int(
+        notification_api.Notify(
+            "ancs4linux",
+            UInt32(0),
+            "",
+            "Bluetooth Pairing Request",
+            f"Confirm pairing only if PIN matches: {pin}",
+            ["confirm-pairing", "Confirm", "deny-pairing", "Deny"],
+            [],
+            Int32(30000),
+        )
     )
 
 
@@ -83,6 +88,11 @@ def dismiss_notification(id: int) -> None:
 
 
 def action_clicked(host_id: int, action: str) -> None:
+    global pairing_notification_id
+    if host_id == pairing_notification_id:
+        advertising_api.ConfirmPairing(action == "confirm-pairing")
+        pairing_notification_id = 0
+        return
     for notification in notifications.values():
         if notification.host_id == host_id:
             notification.on_action(action)
@@ -118,7 +128,7 @@ def main(
 
     notification_api.ActionInvoked.connect(action_clicked)
     notification_api.NotificationClosed.connect(notification_closed)
-    advertising_api.PairingCode.connect(pairing_code)
+    advertising_api.PairingConfirmationRequested.connect(pairing_confirmation_requested)
     observer_api.ShowNotification.connect(new_notification)
     observer_api.DismissNotification.connect(dismiss_notification)
 
