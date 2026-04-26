@@ -18,6 +18,7 @@ class GetNotificationAttributes:
     get_negative_action: bool
 
     def to_list(self) -> List[int]:
+        # Format: CommandID(B) + UID(I) + [AttributeID(B) + MaxLen(H)]*; USHORT_MAX means no truncation.
         msg = struct.pack(
             "<BIBBHBH",
             CommandID.GetNotificationAttributes,

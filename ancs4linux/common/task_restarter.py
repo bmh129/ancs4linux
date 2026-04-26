@@ -23,6 +23,7 @@ class TaskRestarter:
         self.failure_fn = failure_fn
 
     def try_running_tick(self) -> bool:
+        # GLib timer callback convention: return False to unregister, True to keep firing.
         if self.fn():
             self.success_fn()
             return False
@@ -32,7 +33,6 @@ class TaskRestarter:
             self.failure_fn()
             return False
 
-        # Retry.
         return True
 
     def try_running_bg(self):

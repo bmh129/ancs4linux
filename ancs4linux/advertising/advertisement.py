@@ -49,6 +49,7 @@ class AdvertisementData:
 
     @property
     def ManufacturerData(self) -> Dict[UInt16, Variant]:
+        # 0xFFFF is the unregistered/test manufacturer ID; payload bytes are arbitrary — iOS ignores them and only needs a visible advertisement to initiate ANCS.
         return {UInt16(0xFFFF): array_of_bytes([0x50, 0xB0, 0x13, 0xF0])}
 
     @ManufacturerData.setter

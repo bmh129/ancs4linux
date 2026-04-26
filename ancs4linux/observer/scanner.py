@@ -49,6 +49,7 @@ class Scanner:
         if BluezGattCharacteristicAPI.interface in services:
             uuid = services[BluezGattCharacteristicAPI.interface]["UUID"].unpack()
             if uuid in ANCS_CHARS:
+                # Bluez path hierarchy: …/hciN/dev_XX/serviceYYYY/charZZZZ — drop last 2 segments to get device path.
                 device = "/".join(path.split("/")[:-2])
                 self.devices.setdefault(device, MobileDevice(device, self.server))
                 if uuid == NOTIFICATION_SOURCE_CHAR:

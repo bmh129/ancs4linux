@@ -23,6 +23,7 @@ if TYPE_CHECKING:
 class DeviceCommunicator:
     def __init__(self, device: "MobileDevice"):
         self.device = device
+        # Per-device ID namespace: random base * 1000 leaves room for device-local UIDs (small ints) without colliding across devices.
         self.id = random.randint(1, 10 ** 5) * 1000
         self.notification_queue: List[ShowNotificationData] = []
         self.awaiting_app_names: Set[str] = set()
@@ -78,7 +79,7 @@ class DeviceCommunicator:
                 device_name=self.device.name,
                 app_id=attrs.app_id,
                 app_name="",
-                id=(self.id + attrs.id) % UINT_MAX,
+                id=(self.id + attrs.id) % UINT_MAX,  # device-local UID → process-global UInt32
                 title=attrs.title,
                 body=attrs.message,
                 positive_action=attrs.positive_action,
@@ -118,7 +119,7 @@ class DeviceCommunicator:
         self.notification_queue = unprocessed
 
     def ask_for_action(self, notification_id: int, is_positive: bool) -> None:
-        id = (notification_id - self.id) % UINT_MAX
+        id = (notification_id - self.id) % UINT_MAX  # reverse the global→local mapping before writing to control point
         msg = PerformNotificationAction(notification_id=id, is_positive=is_positive)
         assert self.device.control_point
         self.device.control_point.WriteValue(msg.to_list(), {})
