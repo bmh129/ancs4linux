@@ -70,8 +70,8 @@ class Scanner:
             self.devices.setdefault(device, MobileDevice(device, self.server))
             if "Paired" in changes:
                 self.devices[device].set_paired(changes["Paired"].unpack())
-            if "Connected" in changes:
-                self.devices[device].set_connected(changes["Connected"].unpack())
+            if "ServicesResolved" in changes:
+                self.devices[device].set_services_resolved(changes["ServicesResolved"].unpack())
             if "Alias" in changes:
                 self.devices[device].set_name(changes["Alias"].unpack())
             return

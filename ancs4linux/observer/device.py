@@ -17,7 +17,7 @@ class MobileDevice:
         self.communicator: Optional[DeviceCommunicator] = None
 
         self.paired = False
-        self.connected = False
+        self.services_resolved = False
         self.name: Optional[str] = None
         self.notification_source: Optional[BluezGattCharacteristicAPI] = None
         self.control_point: Optional[BluezGattCharacteristicAPI] = None
@@ -43,9 +43,9 @@ class MobileDevice:
         self.paired = paired
         self.try_subscribe()
 
-    def set_connected(self, connected: bool) -> None:
+    def set_services_resolved(self, resolved: bool) -> None:
         self.unsubscribe()
-        self.connected = connected
+        self.services_resolved = resolved
         self.try_subscribe()
 
     def set_name(self, name: str) -> None:
@@ -58,11 +58,11 @@ class MobileDevice:
 
     def try_subscribe(self) -> None:
         log.debug(
-            f"{self.path}: {self.paired} {self.connected} {not self.communicator}"
+            f"{self.path}: {self.paired} {self.services_resolved} {not self.communicator}"
         )
         if not (
             self.paired
-            and self.connected
+            and self.services_resolved
             and self.name
             and self.notification_source
             and self.control_point

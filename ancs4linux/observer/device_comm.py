@@ -1,8 +1,11 @@
+import logging
 import random
 from typing import TYPE_CHECKING, Dict, List, Set
 
 from ancs4linux.common.apis import ShowNotificationData
 from ancs4linux.common.dbus import Variant
+
+log = logging.getLogger(__name__)
 from ancs4linux.observer.ancs.builders import (
     GetAppAttributes,
     GetNotificationAttributes,
@@ -43,6 +46,7 @@ class DeviceCommunicator:
             return
 
         notification = Notification.parse(changes["Value"].unpack())
+        log.debug(f"ANCS notification: type={notification.type} fresh={notification.is_fresh()} id={notification.id}")
         if notification.type == EventID.NotificationAdded and notification.is_fresh():
             self.ask_for_notification_details(notification)
         elif notification.type == EventID.NotificationModified:
