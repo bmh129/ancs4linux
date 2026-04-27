@@ -174,27 +174,6 @@ EnvironmentFile=-%h/.config/ancs4linux/advertising.env
 WantedBy=default.target
 EOF
 
-# ── BlueZ audio profile configuration ────────────────────────────────────────
-# Disable A2DP and AVRCP so the iPhone never redirects audio to the laptop.
-# A2DP is the audio streaming profile; AVRCP is the media control profile that
-# causes GNOME to show playback controls in the notification area. Neither is
-# useful when the Bluetooth connection is used exclusively for ANCS notifications.
-info "Disabling A2DP and AVRCP in BlueZ..."
-BLUEZ_CONF=/etc/bluetooth/main.conf
-if [ -f "$BLUEZ_CONF" ]; then
-    if grep -qE "^\s*DisablePlugins\s*=" "$BLUEZ_CONF"; then
-        sed -i 's/^\s*DisablePlugins\s*=.*/DisablePlugins = a2dp,avrcp/' "$BLUEZ_CONF"
-    elif grep -q "^\[General\]" "$BLUEZ_CONF"; then
-        sed -i '/^\[General\]/a DisablePlugins = a2dp,avrcp' "$BLUEZ_CONF"
-    else
-        printf '\n[General]\nDisablePlugins = a2dp,avrcp\n' >> "$BLUEZ_CONF"
-    fi
-else
-    mkdir -p /etc/bluetooth
-    printf '[General]\nDisablePlugins = a2dp,avrcp\n' > "$BLUEZ_CONF"
-fi
-systemctl restart bluetooth.service
-
 # ── Enable and start ──────────────────────────────────────────────────────────
 info "Reloading systemd daemon..."
 systemctl daemon-reload
