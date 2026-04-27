@@ -77,7 +77,7 @@ class PairingAgent:
         raise PairingRejected
 
     def AuthorizeService(self, device: ObjPath, uuid: Str) -> None:
-        raise PairingRejected
+        pass
 
     def Cancel(self) -> None:
         if self._pending and self._confirmation_result is None:
