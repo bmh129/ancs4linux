@@ -2,7 +2,20 @@
 
 ## Notification reliability improvements
 
-Three fixes to prevent notifications from being silently dropped.
+Four fixes to prevent notifications from being silently dropped.
+
+### Pre-existing notifications now shown
+
+Notifications that fired before the ANCS connection was established (e.g.,
+a reminder that triggered while the laptop was rebooting or BLE was
+reconnecting) were previously filtered out and never shown. iOS marks these
+with a `PreExisting` flag, and the original code treated them the same as
+`NotificationRemoved` and discarded them.
+
+Any notification that is still active in ANCS has not yet been dismissed on
+the iPhone, so it is still relevant. The `PreExisting` filter has been
+removed — all `NotificationAdded` and `NotificationModified` events are now
+forwarded regardless of the flag.
 
 ### App name lookup timeout
 
