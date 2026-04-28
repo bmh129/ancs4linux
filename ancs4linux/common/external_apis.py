@@ -108,6 +108,27 @@ class BluezAgentManagerAPI(ABC):
         pass
 
 
+class BluezAdapterAPI(ABC):
+    name = "org.bluez"
+    interface = "org.bluez.Adapter1"
+
+    @classmethod
+    def connect(cls, path: ObjPath) -> "BluezAdapterAPI":
+        return cast(BluezAdapterAPI, SystemBus().get_proxy(cls.name, path))
+
+    @abstractmethod
+    def StartDiscovery(self) -> None:
+        pass
+
+    @abstractmethod
+    def StopDiscovery(self) -> None:
+        pass
+
+    @abstractmethod
+    def SetDiscoveryFilter(self, properties: Dict[Str, Variant]) -> None:
+        pass
+
+
 class BluezDeviceAPI(PropertiesAPI, ABC):
     name = "org.bluez"
     interface = "org.bluez.Device1"

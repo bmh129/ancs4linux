@@ -1,5 +1,5 @@
 import logging
-from typing import Optional
+from typing import Callable, Optional
 
 from ancs4linux.common.apis import ObserverAPI
 from ancs4linux.common.dbus import ObjPath, get_dbus_error_name
@@ -11,9 +11,17 @@ log = logging.getLogger(__name__)
 
 
 class MobileDevice:
-    def __init__(self, path: str, server: ObserverAPI):
+    def __init__(
+        self,
+        path: str,
+        server: ObserverAPI,
+        on_subscribed: Optional[Callable[[], None]] = None,
+        on_unsubscribed: Optional[Callable[[], None]] = None,
+    ):
         self.server = server
         self.path = path
+        self.on_subscribed = on_subscribed
+        self.on_unsubscribed = on_unsubscribed
         self.communicator: Optional[DeviceCommunicator] = None
 
         self.paired = False
@@ -54,6 +62,8 @@ class MobileDevice:
         self.try_subscribe()
 
     def unsubscribe(self) -> None:
+        if self.communicator is not None and self.on_unsubscribed:
+            self.on_unsubscribed()
         self.communicator = None
 
     def try_subscribe(self) -> None:
@@ -98,6 +108,9 @@ class MobileDevice:
         comm = DeviceCommunicator(self)
         comm.attach()
         self.communicator = comm
+
+        if self.on_subscribed:
+            self.on_subscribed()
 
         return True
 
