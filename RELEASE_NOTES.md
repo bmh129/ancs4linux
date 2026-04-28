@@ -1,5 +1,34 @@
 # Release Notes
 
+## Notification reliability improvements
+
+Three fixes to prevent notifications from being silently dropped.
+
+### App name lookup timeout
+
+When a notification arrives from an app whose name has not been seen before,
+the observer sends a `GetAppAttributes` request to the iPhone and holds the
+notification in a queue until the response arrives. If the iPhone never
+responded (brief Bluetooth hiccup, device busy), the notification would sit
+in the queue indefinitely and never be shown.
+
+The observer now sets a 5-second timeout for each app name request. If no
+response arrives in time, the notification is released using the app's bundle
+ID as the display name rather than being lost.
+
+### Packet handler error isolation
+
+An unexpected or malformed BLE packet in either the notification source or data
+source handler would throw an unhandled exception, which left subsequent packets
+unprocessed until the next BLE event fired. Both handlers now catch and log
+parse errors so a bad packet is skipped without affecting anything that follows.
+
+### Emit failure logging
+
+If the D-Bus call to show a notification failed after the notification had
+already been dequeued, it was lost with no indication in the logs. The emit
+call is now wrapped so failures are logged rather than silently discarded.
+
 ## Automatic LE reconnect after reboot
 
 After a reboot, BlueZ defaults to using BR/EDR (classic Bluetooth) when
