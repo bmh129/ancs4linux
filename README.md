@@ -81,8 +81,9 @@ warn you that notifications will be forwarded to the laptop.
 ### Starting advertising after a reboot (already paired)
 
 Re-pairing is not needed after the first time. After installing via
-`autorun/install.sh`, advertising is enabled automatically at login — no
-manual steps needed.
+`autorun/install.sh`, advertising is enabled automatically at login and
+the iPhone reconnects via Bluetooth LE automatically — typically within
+30–60 seconds of the laptop booting, with no manual steps needed.
 
 ## TODO
 

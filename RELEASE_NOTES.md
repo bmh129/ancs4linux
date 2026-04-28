@@ -1,5 +1,32 @@
 # Release Notes
 
+## Automatic LE reconnect after reboot
+
+After a reboot, BlueZ defaults to using BR/EDR (classic Bluetooth) when
+reconnecting to a paired iPhone. A BR/EDR connection sets `ServicesResolved`
+but exposes no GATT characteristics, so ANCS never subscribes and no
+notifications are forwarded.
+
+This release fixes that with an automatic reconnect loop:
+
+- On startup, the observer identifies paired iOS devices (those whose cached
+  BlueZ UUIDs include the ANCS service UUID) and starts a **Reconnector** for
+  each one.
+- The Reconnector writes `LastUsedBearer=le` to the BlueZ device info file
+  before each connection attempt, forcing BlueZ to use Bluetooth LE rather than
+  BR/EDR.
+- `Device1.Connect()` is retried every 30 seconds until the iPhone accepts the
+  LE connection — which happens as soon as the phone becomes BLE-active (screen
+  on, notification received, etc.).
+- The observer also runs `StartDiscovery` with an LE transport filter so BlueZ
+  can resolve the iPhone's rotating private address (RPA) and reach it
+  successfully.
+- Once ANCS subscribes, the reconnect loop and discovery both stop
+  automatically.
+
+The BLE advertisement now also includes a `SolicitUUIDs` field with the ANCS
+UUID, which signals iOS that this device is an ANCS notification consumer.
+
 ## Fedora Silverblue support
 
 ### Automated install via `autorun/install.sh`
