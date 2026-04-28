@@ -53,9 +53,7 @@ class DeviceCommunicator:
         try:
             notification = Notification.parse(changes["Value"].unpack())
             log.debug(f"ANCS notification: type={notification.type} fresh={notification.is_fresh()} id={notification.id}")
-            if notification.type == EventID.NotificationAdded and notification.is_fresh():
-                self.ask_for_notification_details(notification)
-            elif notification.type == EventID.NotificationModified:
+            if notification.type in (EventID.NotificationAdded, EventID.NotificationModified):
                 self.ask_for_notification_details(notification)
             else:
                 self.device.server.emit_dismiss_notification(notification.id)
