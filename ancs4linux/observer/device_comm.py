@@ -2,6 +2,11 @@ import logging
 import random
 from typing import TYPE_CHECKING, Dict, List, Set
 
+import gi  # type: ignore
+
+gi.require_version("GLib", "2.0")
+from gi.repository import GLib  # type: ignore
+
 from ancs4linux.common.apis import ShowNotificationData
 from ancs4linux.common.dbus import Variant
 
@@ -45,14 +50,17 @@ class DeviceCommunicator:
         if interface != "org.bluez.GattCharacteristic1" or "Value" not in changes:
             return
 
-        notification = Notification.parse(changes["Value"].unpack())
-        log.debug(f"ANCS notification: type={notification.type} fresh={notification.is_fresh()} id={notification.id}")
-        if notification.type == EventID.NotificationAdded and notification.is_fresh():
-            self.ask_for_notification_details(notification)
-        elif notification.type == EventID.NotificationModified:
-            self.ask_for_notification_details(notification)
-        else:
-            self.device.server.emit_dismiss_notification(notification.id)
+        try:
+            notification = Notification.parse(changes["Value"].unpack())
+            log.debug(f"ANCS notification: type={notification.type} fresh={notification.is_fresh()} id={notification.id}")
+            if notification.type == EventID.NotificationAdded and notification.is_fresh():
+                self.ask_for_notification_details(notification)
+            elif notification.type == EventID.NotificationModified:
+                self.ask_for_notification_details(notification)
+            else:
+                self.device.server.emit_dismiss_notification(notification.id)
+        except Exception as e:
+            log.error(f"Failed to handle notification source packet: {e}")
 
     def ask_for_notification_details(self, notification: Notification) -> None:
         msg = GetNotificationAttributes(
@@ -69,11 +77,14 @@ class DeviceCommunicator:
         if interface != "org.bluez.GattCharacteristic1" or "Value" not in changes:
             return
 
-        ev = DataSourceEvent.parse(changes["Value"].unpack())
-        if ev.type == CommandID.GetNotificationAttributes:
-            self.on_notification_attributes(ev.as_notification_attributes())
-        elif ev.type == CommandID.GetAppAttributes:
-            self.on_app_attributes(ev.as_app_attributes())
+        try:
+            ev = DataSourceEvent.parse(changes["Value"].unpack())
+            if ev.type == CommandID.GetNotificationAttributes:
+                self.on_notification_attributes(ev.as_notification_attributes())
+            elif ev.type == CommandID.GetAppAttributes:
+                self.on_app_attributes(ev.as_app_attributes())
+        except Exception as e:
+            log.error(f"Failed to handle data source packet: {e}")
 
     def on_notification_attributes(self, attrs: NotificationAttributes) -> None:
         assert self.device.name
@@ -106,21 +117,36 @@ class DeviceCommunicator:
         msg = GetAppAttributes(app_id=app_id)
         assert self.device.control_point
         self.device.control_point.WriteValue(msg.to_list(), {})
+        GLib.timeout_add_seconds(5, lambda: self._app_name_timeout(app_id))
+
+    def _app_name_timeout(self, app_id: str) -> bool:
+        if app_id in self.awaiting_app_names:
+            log.warning(f"App name lookup timed out for {app_id!r}, using app_id as fallback")
+            self.awaiting_app_names.discard(app_id)
+            self.known_app_names[app_id] = app_id
+            self.process_queue()
+        return False
 
     def process_queue(self) -> None:
         unprocessed = []
         for data in self.notification_queue:
             if data.app_name != "":
-                self.device.server.emit_show_notification(data)
+                self._emit(data)
             elif data.app_id in self.known_app_names:
                 data.app_name = self.known_app_names[data.app_id]
-                self.device.server.emit_show_notification(data)
+                self._emit(data)
             elif data.app_id in self.awaiting_app_names:
                 unprocessed.append(data)
             else:
                 self.ask_for_app_name(data.app_id)
                 unprocessed.append(data)
         self.notification_queue = unprocessed
+
+    def _emit(self, data: ShowNotificationData) -> None:
+        try:
+            self.device.server.emit_show_notification(data)
+        except Exception as e:
+            log.error(f"Failed to emit notification {data.id!r}: {e}")
 
     def ask_for_action(self, notification_id: int, is_positive: bool) -> None:
         id = (notification_id - self.id) % UINT_MAX  # reverse the global→local mapping before writing to control point
