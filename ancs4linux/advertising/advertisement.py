@@ -40,6 +40,15 @@ class AdvertisementData:
         pass
 
     @property
+    def SolicitUUIDs(self) -> List[Str]:
+        # Soliciting ANCS tells iOS to proactively connect via BLE for notification delivery.
+        return ["7905f431-b5ce-4e99-a40f-4b1e122d00d0"]
+
+    @SolicitUUIDs.setter
+    def SolicitUUIDs(self, value: List[Str]) -> None:
+        pass
+
+    @property
     def IncludeTxPower(self) -> Bool:
         return True
 
