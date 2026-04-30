@@ -8,16 +8,6 @@ It uses Apple Notification Center Service (ANCS) - the same protocol that smartw
 
 ## Running
 
-### Ubuntu 20.04 (original instructions)
-
-```bash
-sudo apt-get install -y libgirepository1.0-dev
-git clone https://github.com/pzmarzly/ancs4linux
-sudo ./ancs4linux/autorun/install.sh
-systemctl --user daemon-reload
-systemctl --user start ancs4linux-desktop-integration.service
-```
-
 ### Fedora Silverblue
 
 `gobject-introspection` is already present in the Silverblue base image. Install
