@@ -2,7 +2,7 @@
 
 > iOS & iPadOS notification service client for GNU/Linux
 
-This project lets you receive iOS and iPadOS notifications on your Linux desktop/laptop. No jailbreak needed.
+This project lets you receive iOS and iPadOS notifications on your Linux computer. No jailbreak needed.
 
 It uses Apple Notification Center Service (ANCS) - the same protocol that smartwatches use. Bluetooth 4.0 (Low Energy) is required.
 
@@ -73,7 +73,7 @@ both ends first:
 bluetoothctl remove <MAC>   # find the MAC with: bluetoothctl devices
 ```
 
-On iPhone: Settings → Bluetooth → tap ⓘ next to the laptop → Forget This Device.
+On iPhone: Settings → Bluetooth → tap ⓘ next to the computer → Forget This Device.
 
 Then start advertising. The `ancs4linux-ctl` binary lives inside the conda
 environment, so either activate it first or use the full path:
@@ -88,14 +88,14 @@ ancs4linux-ctl enable-advertising --hci-address="$address" --name="$(hostname -s
 On your iPhone, open Settings → Bluetooth. Tap `my-laptop` when it appears. A
 desktop notification with **Confirm** and **Deny** buttons will appear — confirm
 only if the passkey shown on the iPhone matches. Once paired, the iPhone will
-warn you that notifications will be forwarded to the laptop.
+warn you that notifications will be forwarded to the computer.
 
 ### Starting advertising after a reboot (already paired)
 
 Re-pairing is not needed after the first time. After installing via
 `autorun/install.sh`, advertising is enabled automatically at login and
 the iPhone reconnects via Bluetooth LE automatically — typically within
-30–60 seconds of the laptop booting, with no manual steps needed.
+30–60 seconds of the computer booting, with no manual steps needed.
 
 ## TODO
 
