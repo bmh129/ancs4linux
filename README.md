@@ -10,13 +10,23 @@ It uses Apple Notification Center Service (ANCS) - the same protocol that smartw
 
 ### Fedora Silverblue
 
-`gobject-introspection` is already present in the Silverblue base image. Install
-the Python bindings and project dependencies in a conda environment:
+`gobject-introspection` is already present in the Silverblue base image.
+
+If conda is not yet installed, install [Miniforge3](https://github.com/conda-forge/miniforge) first:
+
+```bash
+curl -fsSL "https://github.com/conda-forge/miniforge/releases/latest/download/Miniforge3-Linux-x86_64.sh" -o /tmp/miniforge3.sh
+bash /tmp/miniforge3.sh -b -p "$HOME/miniforge3"
+```
+
+Then install the Python bindings and project dependencies in a conda environment.
+Note: `pip` is not included in the base env by default, so install it explicitly:
 
 ```bash
 conda create -n ancs4linux python=3.11
 conda activate ancs4linux
 conda install -c conda-forge pygobject
+conda install pip
 pip install -e .
 ```
 
@@ -28,8 +38,12 @@ locations, configures SELinux file contexts, and enables everything:
 sudo autorun/install.sh
 ```
 
-Start the user services for your current session (future logins start them
-automatically):
+The install script adds your user to the `ancs4linux` group, but group membership
+only takes effect at the next login. **Log out and back in before starting the
+user services**, otherwise they will fail with a D-Bus authorization error.
+
+After logging back in, start the user services for your current session (future
+logins start them automatically):
 
 ```bash
 systemctl --user daemon-reload
