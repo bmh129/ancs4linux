@@ -1,5 +1,34 @@
 # Release Notes
 
+## Bug fixes from initial Fedora Silverblue installation
+
+### Re-advertising fails after BlueZ DiscoverableTimeout expires
+
+By default, BlueZ turns off `Discoverable` and `Pairable` after 180 seconds.
+When `enable-advertising` was called again after that window (e.g. manually, or
+via the systemd service on a second attempt), the advertising daemon would try to
+unregister the advertisement before re-registering it. BlueZ had already expired
+the advertisement, so `UnregisterAdvertisement` returned `Does Not Exist` and the
+whole call failed.
+
+The `disable_advertising` path now catches that error and treats it as a no-op —
+BlueZ having already cleaned up is not a problem.
+
+### ANCS subscription blocked when device name arrives before pairing completes
+
+When a device pairs, BlueZ sends `Alias` and `Paired` as separate
+`PropertiesChanged` signals, and `Alias` typically arrives first. The observer
+only tracks a device once `Paired` becomes `True`, so the earlier `Alias` signal
+was silently dropped and `self.name` was never set.
+
+Because `try_subscribe` requires all of `paired`, `services_resolved`, `name`,
+and the three ANCS GATT characteristics before subscribing, a missing name
+blocked the ANCS connection indefinitely — even though the device showed as
+paired and services were resolved.
+
+Fixed by reading the current `Alias` from the full device properties at the
+moment `Paired` fires, so the name is always seeded regardless of signal ordering.
+
 ## Notification reliability improvements
 
 Four fixes to prevent notifications from being silently dropped.

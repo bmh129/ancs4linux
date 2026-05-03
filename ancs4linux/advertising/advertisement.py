@@ -5,6 +5,7 @@ from ancs4linux.advertising.pairing import PairingManager
 from ancs4linux.common.dbus import (
     Bool,
     Byte,
+    DBusError,
     ObjPath,
     Str,
     SystemBus,
@@ -162,7 +163,10 @@ class AdvertisingManager:
         path = self.get_hci_path(hci_address)
         if path is not None:
             hci: Any = SystemBus().get_proxy("org.bluez", path)
-            hci.UnregisterAdvertisement("/advertisement")
+            try:
+                hci.UnregisterAdvertisement("/advertisement")
+            except DBusError:
+                pass  # BlueZ may have already expired the advertisement
             original_state.restore_on(hci)
 
         if len(self.active_advertisements) == 0:

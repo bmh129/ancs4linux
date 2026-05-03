@@ -69,11 +69,13 @@ bluetoothctl remove <MAC>   # find the MAC with: bluetoothctl devices
 
 On iPhone: Settings → Bluetooth → tap ⓘ next to the laptop → Forget This Device.
 
-Then start advertising:
+Then start advertising. The `ancs4linux-ctl` binary lives inside the conda
+environment, so either activate it first or use the full path:
 
 ```bash
+conda activate ancs4linux
 address=$(ancs4linux-ctl get-all-hci | python3 -c "import sys,json; print(json.load(sys.stdin)[0])")
-ancs4linux-ctl enable-advertising --hci-address="$address" --name="my-laptop"
+ancs4linux-ctl enable-advertising --hci-address="$address" --name="$(hostname -s)"
 # This may take 30 seconds. Do not attempt to connect until it finishes.
 ```
 
