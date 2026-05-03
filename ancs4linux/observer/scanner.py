@@ -191,6 +191,13 @@ class Scanner:
                     r = Reconnector(device, adapter_mac)
                     self._reconnectors[device] = r
                     r.start()
+            # Alias may have arrived before Paired — seed it from the full props
+            # so the name is set even when it's absent from this change event.
+            if "Alias" not in changes:
+                alias = props.get("Alias")
+                if alias is not None:
+                    changes = dict(changes)
+                    changes["Alias"] = alias
         # Only create MobileDevice for known paired-or-already-tracked devices.
         if device in self.devices or (paired is not None and paired.unpack()):
             self.devices.setdefault(
