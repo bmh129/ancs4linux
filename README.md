@@ -39,10 +39,16 @@ sudo autorun/install.sh
 ```
 
 The install script adds your user to the `ancs4linux` group, but group membership
-only takes effect at the next login. **Log out and back in before starting the
-user services**, otherwise they will fail with a D-Bus authorization error.
+only takes effect once `systemd --user` restarts with the new credentials.
+**Reboot before starting the user services**, otherwise they will fail with a
+D-Bus authorization error.
 
-After logging back in, start the user services for your current session (future
+A logout/login is not sufficient if systemd lingering is enabled
+(`loginctl show-user $USER | grep Linger`). When lingering is on, `systemd --user`
+survives logout and keeps its old group credentials — only a full reboot
+restarts it with the updated group membership.
+
+After rebooting, start the user services for your current session (future
 logins start them automatically):
 
 ```bash
