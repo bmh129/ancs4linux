@@ -36,7 +36,7 @@ Four fixes to prevent notifications from being silently dropped.
 ### Pre-existing notifications now shown
 
 Notifications that fired before the ANCS connection was established (e.g.,
-a reminder that triggered while the laptop was rebooting or BLE was
+a reminder that triggered while the computer was rebooting or BLE was
 reconnecting) were previously filtered out and never shown. iOS marks these
 with a `PreExisting` flag, and the original code treated them the same as
 `NotificationRemoved` and discarded them.
@@ -97,6 +97,23 @@ This release fixes that with an automatic reconnect loop:
 
 The BLE advertisement now also includes a `SolicitUUIDs` field with the ANCS
 UUID, which signals iOS that this device is an ANCS notification consumer.
+
+## Fedora Silverblue install notes
+
+### Reboot required after install when systemd lingering is enabled
+
+After `autorun/install.sh` runs, the user is added to the `ancs4linux`
+group. The README previously said to log out and back in for the group
+to take effect. This is not sufficient when systemd lingering is enabled.
+
+When lingering is on (`loginctl show-user $USER | grep Linger` returns
+`Linger=yes`), `systemd --user` is kept alive across logout and never
+restarts. It retains its old group credentials, so processes it spawns —
+including the `ancs4linux-desktop-integration` service — are not in the
+`ancs4linux` group and fail with a D-Bus authorization error.
+
+A full reboot is required. After rebooting, `systemd --user` starts
+fresh with the updated group membership and the services come up cleanly.
 
 ## Fedora Silverblue support
 
