@@ -1,5 +1,19 @@
 # Release Notes
 
+## iPhone audio routing to computer
+
+When the iPhone pairs and connects, it establishes both a BLE connection for
+ANCS and a classic Bluetooth connection that activates A2DP and HFP audio
+profiles. WirePlumber (PipeWire's session manager) picks these up automatically,
+causing iPhone audio to route to the computer's speakers and AVRCP media
+controls to appear in the GNOME notification area.
+
+This is not a bug in ancs4linux — it is standard WirePlumber behavior for any
+paired Bluetooth device that advertises audio profiles. The fix is a per-device
+WirePlumber rule that sets the iPhone's Bluetooth audio profile to `off`,
+suppressing all audio activity for that device while leaving the BLE/ANCS
+connection untouched. See the README for the configuration file to create.
+
 ## Update workflow
 
 ### `autorun/update.sh`
