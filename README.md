@@ -133,7 +133,7 @@ causing iPhone audio to route to the computer's speakers and media controls
 to appear in the GNOME notification area.
 
 To prevent this, create a WirePlumber rule that sets the iPhone's Bluetooth
-audio profile to `off`. Replace `WALTER-PE` with your iPhone's Bluetooth
+audio profile to `off`. Replace `your-iphone-name` with your iPhone's Bluetooth
 name (visible in `bluetoothctl devices` or GNOME Bluetooth settings):
 
 ```bash
@@ -148,7 +148,7 @@ monitor.bluez.rules = [
   {
     matches = [
       {
-        device.alias = "WALTER-PE"
+        device.alias = "your-iphone-name"
       }
     ]
     actions = {
