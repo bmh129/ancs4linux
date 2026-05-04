@@ -123,6 +123,53 @@ Re-pairing is not needed after the first time. After installing via
 the iPhone reconnects via Bluetooth LE automatically — typically within
 30–60 seconds of the computer booting, with no manual steps needed.
 
+### Preventing iPhone audio from routing to the computer
+
+When the iPhone connects via Bluetooth, it establishes both a BLE connection
+(used by ANCS for notifications) and a classic Bluetooth connection that
+includes A2DP and HFP audio profiles. Without additional configuration,
+WirePlumber (PipeWire's session manager) will activate these audio profiles,
+causing iPhone audio to route to the computer's speakers and media controls
+to appear in the GNOME notification area.
+
+To prevent this, create a WirePlumber rule that sets the iPhone's Bluetooth
+audio profile to `off`. Replace `WALTER-PE` with your iPhone's Bluetooth
+name (visible in `bluetoothctl devices` or GNOME Bluetooth settings):
+
+```bash
+mkdir -p ~/.config/wireplumber/wireplumber.conf.d
+```
+
+Create `~/.config/wireplumber/wireplumber.conf.d/51-disable-iphone-audio.conf`
+with the following contents:
+
+```
+monitor.bluez.rules = [
+  {
+    matches = [
+      {
+        device.alias = "WALTER-PE"
+      }
+    ]
+    actions = {
+      update-props = {
+        bluez5.profile = "off"
+      }
+    }
+  }
+]
+```
+
+Then restart WirePlumber:
+
+```bash
+systemctl --user restart wireplumber
+```
+
+This rule is matched by device name so it only affects the iPhone — other
+Bluetooth audio devices (headphones, speakers) are unaffected. The ANCS
+notification connection runs over BLE and is also unaffected.
+
 ## TODO
 
 - [x] Write a systemd user service drop-in (or wrapper script) that runs
