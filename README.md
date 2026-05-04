@@ -57,6 +57,32 @@ systemctl --user start ancs4linux-desktop-integration.service
 systemctl --user start ancs4linux-enable-advertising.service
 ```
 
+### Updating to a newer version
+
+First, obtain the new code — either by pulling from GitHub or copying it from
+another source. `update.sh` does **not** fetch code for you; that step must be
+done beforehand:
+
+```bash
+cd ~/projects/ancs4linux
+git pull origin develop
+```
+
+Then run the update script (requires sudo). It reinstalls the Python package
+into the conda environment (picking up any new dependencies) and restarts the
+system services:
+
+```bash
+sudo autorun/update.sh
+```
+
+Finally, restart the user services for your current session:
+
+```bash
+systemctl --user restart ancs4linux-desktop-integration.service
+systemctl --user restart ancs4linux-enable-advertising.service
+```
+
 By default the Bluetooth device name is your system hostname. To use a custom
 name, create `~/.config/ancs4linux/advertising.env` before starting the service:
 
@@ -106,6 +132,8 @@ the iPhone reconnects via Bluetooth LE automatically — typically within
       the three services start automatically via systemd on boot/login.
 - [ ] Investigate whether `rpm-ostree` layering or a Toolbox/Distrobox container
       is the better long-term packaging approach for Silverblue.
+- [ ] Add an option to `autorun/update.sh` to pull a specified branch from
+      GitHub before reinstalling and restarting services.
 
 ## Integration
 
