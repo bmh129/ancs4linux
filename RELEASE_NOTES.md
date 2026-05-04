@@ -1,5 +1,25 @@
 # Release Notes
 
+## Update workflow
+
+### `autorun/update.sh`
+
+A new script, `autorun/update.sh`, handles applying code updates to a running
+installation. It reinstalls the Python package into the conda environment
+(picking up any new dependencies) and restarts the system services.
+
+**Important:** the script does not fetch new code from GitHub. You must obtain
+the updated source first — either by pulling from the repository or copying
+files from another source — before running the script:
+
+```bash
+cd ~/projects/ancs4linux
+git pull origin develop
+sudo autorun/update.sh
+systemctl --user restart ancs4linux-desktop-integration.service
+systemctl --user restart ancs4linux-enable-advertising.service
+```
+
 ## Bug fixes from initial Fedora Silverblue installation
 
 ### Re-advertising fails after BlueZ DiscoverableTimeout expires
