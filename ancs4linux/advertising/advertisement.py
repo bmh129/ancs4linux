@@ -152,7 +152,7 @@ class AdvertisingManager:
         hci: Any = SystemBus().get_proxy("org.bluez", path)
         self.active_advertisements[hci_address] = HciState.save(hci)
         HciState.advertising(name).restore_on(hci)
-        hci.RegisterAdvertisement("/advertisement", {})
+        hci.RegisterAdvertisement("/advertisement", {"Includes": Variant("as", ["local-name"])})
 
     def disable_advertising(self, hci_address: str) -> None:
         if hci_address not in self.active_advertisements:

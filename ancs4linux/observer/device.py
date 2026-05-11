@@ -1,5 +1,5 @@
 import logging
-from typing import Callable, Optional
+from typing import Any, Callable, Optional
 
 from ancs4linux.common.apis import ObserverAPI
 from ancs4linux.common.dbus import ObjPath, get_dbus_error_name
@@ -44,6 +44,17 @@ class MobileDevice:
     def set_data_source(self, path: ObjPath) -> None:
         self.unsubscribe()
         self.data_source = BluezGattCharacteristicAPI.connect(path)
+        self.try_subscribe()
+
+    def set_chars_direct(
+        self, notification_source: Any, control_point: Any, data_source: Any
+    ) -> None:
+        """Inject GATT char objects from a direct ATT connection (not D-Bus paths)."""
+        self.unsubscribe()
+        self.notification_source = notification_source
+        self.control_point = control_point
+        self.data_source = data_source
+        self.services_resolved = True
         self.try_subscribe()
 
     def set_paired(self, paired: bool) -> None:

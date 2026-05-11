@@ -1,5 +1,4 @@
 import logging
-import re
 from functools import partial
 from typing import Dict, List, Optional
 
@@ -22,35 +21,46 @@ from ancs4linux.observer.ancs.constants import (
     DATA_SOURCE_CHAR,
     NOTIFICATION_SOURCE_CHAR,
 )
+from ancs4linux.observer.att_client import ATTConnection, FakeGattChar
 from ancs4linux.observer.device import MobileDevice
 
 log = logging.getLogger(__name__)
 
 ANCS_SERVICE_UUID = "7905f431-b5ce-4e99-a40f-4b1e122d00d0"
-LE_RECONNECT_INTERVAL_S = 30
+RECONNECT_INTERVAL_S = 30
+
+
+def _mac_from_path(path: str) -> str:
+    """Extract MAC address from BlueZ device path, e.g. /org/bluez/hci0/dev_1C_3C_78_DE_D3_65."""
+    return path.split("/")[-1][4:].replace("_", ":")
 
 
 class Reconnector:
-    """Periodically writes LastUsedBearer=le and calls Device1.Connect() so BlueZ
-    uses LE rather than BR/EDR when reconnecting to the iPhone after a reboot."""
+    """Ensures GATT is established after a Bluetooth restart.
 
-    def __init__(self, device_path: ObjPath, adapter_mac: str) -> None:
+    BlueZ 5.x auto-reconnects the iPhone via BR/EDR on reboot but does NOT
+    re-establish the ATT bearer.  We work around this by opening a direct
+    L2CAP connection to the iPhone (PSM 31) and doing our own GATT discovery
+    via ATTConnection, then injecting FakeGattChar objects into MobileDevice.
+    """
+
+    def __init__(self, device_path: ObjPath, on_att_ready: callable) -> None:
         self.device_path = device_path
-        device_mac = device_path.split("/")[-1][4:].replace("_", ":")
-        self.info_path = f"/var/lib/bluetooth/{adapter_mac}/{device_mac}/info"
         self.device_proxy = BluezDeviceAPI.connect(device_path)
+        self._mac = _mac_from_path(device_path)
         self._timeout_id: Optional[int] = None
         self._active = False
+        self._att: Optional[ATTConnection] = None
+        self._att_ready = False
+        self._on_att_ready = on_att_ready
 
     def start(self) -> None:
         if self._active:
             return
         self._active = True
-        log.info(f"Starting LE reconnect loop for {self.device_path}")
+        log.info(f"Starting GATT reconnect loop for {self.device_path}")
         self._attempt()
-        self._timeout_id = GLib.timeout_add_seconds(
-            LE_RECONNECT_INTERVAL_S, self._attempt
-        )
+        self._timeout_id = GLib.timeout_add_seconds(RECONNECT_INTERVAL_S, self._attempt)
 
     def stop(self) -> None:
         if not self._active:
@@ -59,31 +69,67 @@ class Reconnector:
         if self._timeout_id is not None:
             GLib.source_remove(self._timeout_id)
             self._timeout_id = None
-        log.info(f"Stopped LE reconnect loop for {self.device_path}")
+        if self._att is not None:
+            self._att.close()
+            self._att = None
+        self._att_ready = False
+        log.info(f"Stopped GATT reconnect loop for {self.device_path}")
+
+    def on_disconnected(self) -> None:
+        """Call when BlueZ signals the device disconnected."""
+        if self._att is not None:
+            self._att.close()
+            self._att = None
+        self._att_ready = False
+
+    def _has_bluez_gatt(self) -> bool:
+        try:
+            managed = BluezRootAPI.connect().GetManagedObjects()
+            prefix = self.device_path + "/"
+            return any(
+                path.startswith(prefix) and BluezGattCharacteristicAPI.interface in svcs
+                for path, svcs in managed.items()
+            )
+        except Exception:
+            return False
 
     def _attempt(self) -> bool:
         if not self._active:
             return False
-        self._set_le_bearer()
+        if self._att_ready or self._att is not None:
+            log.debug(
+                f"ATT {'ready' if self._att_ready else 'connecting'} for {self.device_path}"
+            )
+            return self._active
+        if self._has_bluez_gatt():
+            log.debug(f"BlueZ GATT present for {self.device_path}")
+            return self._active
         try:
-            self.device_proxy.Connect()
-            log.debug(f"LE connect initiated for {self.device_path}")
+            props = self.device_proxy.GetAll(BluezDeviceAPI.interface)
+            connected = props.get("Connected", Variant("b", False)).unpack()
         except Exception as e:
-            log.debug(f"LE connect attempt failed for {self.device_path}: {e}")
+            log.debug(f"Could not check {self.device_path}: {e}")
+            return self._active
+        if connected:
+            log.info(f"Opening direct ATT for {self.device_path} ({self._mac})")
+            self._att = ATTConnection(
+                self._mac,
+                on_ready=self._on_att_connected,
+                on_failed=self._on_att_failed,
+            )
+            self._att.open()
         return self._active
 
-    def _set_le_bearer(self) -> None:
-        try:
-            with open(self.info_path) as f:
-                content = f.read()
-            patched = re.sub(r"LastUsedBearer=\w+", "LastUsedBearer=le", content)
-            if patched == content and "LastUsedBearer=" not in content:
-                patched += "LastUsedBearer=le\n"
-            if patched != content:
-                with open(self.info_path, "w") as f:
-                    f.write(patched)
-        except Exception as e:
-            log.warning(f"Could not set LE bearer in {self.info_path}: {e}")
+    def _on_att_connected(
+        self, ns: FakeGattChar, cp: FakeGattChar, ds: FakeGattChar
+    ) -> None:
+        self._att_ready = True
+        self._on_att_ready(ns, cp, ds)
+
+    def _on_att_failed(self) -> None:
+        log.warning(f"ATT failed for {self.device_path}, will retry in {RECONNECT_INTERVAL_S}s")
+        self._att = None
+        self._att_ready = False
 
 
 class Scanner:
@@ -93,7 +139,6 @@ class Scanner:
         self.devices: Dict[str, MobileDevice] = {}
         self.property_observers: Dict[str, BluezDeviceAPI] = {}
         self._adapters: Dict[str, BluezAdapterAPI] = {}
-        self._adapter_macs: Dict[str, str] = {}
         self._reconnectors: Dict[str, Reconnector] = {}
         self._discovery_active: bool = False
 
@@ -104,16 +149,9 @@ class Scanner:
         for path, services in managed.items():
             if "org.bluez.Adapter1" in services:
                 self._adapters[path] = BluezAdapterAPI.connect(path)
-                self._adapter_macs[path] = (
-                    services["org.bluez.Adapter1"]["Address"].unpack()
-                )
             self.process_object(path, services)
         self._start_discovery()
         self._start_ios_reconnectors(managed)
-
-    def _get_adapter_mac(self, device_path: ObjPath) -> Optional[str]:
-        adapter_path = "/".join(device_path.split("/")[:-1])
-        return self._adapter_macs.get(adapter_path)
 
     def _start_ios_reconnectors(
         self, managed: Dict[ObjPath, Dict[Str, Dict[Str, Variant]]]
@@ -128,11 +166,28 @@ class Scanner:
             uuids = props.get("UUIDs", Variant("as", [])).unpack()
             if ANCS_SERVICE_UUID not in uuids:
                 continue
-            adapter_mac = self._get_adapter_mac(path)
-            if adapter_mac and path not in self._reconnectors:
-                r = Reconnector(path, adapter_mac)
+            if path not in self._reconnectors:
+                r = Reconnector(path, on_att_ready=partial(self._on_att_ready, path))
                 self._reconnectors[path] = r
                 r.start()
+
+    def _on_att_ready(
+        self,
+        device_path: ObjPath,
+        ns: FakeGattChar,
+        cp: FakeGattChar,
+        ds: FakeGattChar,
+    ) -> None:
+        device = self.devices.setdefault(
+            device_path,
+            MobileDevice(
+                device_path,
+                self.server,
+                on_subscribed=partial(self._on_subscribed, device_path),
+                on_unsubscribed=partial(self._on_unsubscribed, device_path),
+            ),
+        )
+        device.set_chars_direct(ns, cp, ds)
 
     def process_object(
         self, path: ObjPath, services: Dict[Str, Dict[Str, Variant]]
@@ -186,9 +241,8 @@ class Scanner:
             props = self.property_observers[device].GetAll(BluezDeviceAPI.interface)
             uuids = props.get("UUIDs", [])
             if ANCS_SERVICE_UUID in uuids:
-                adapter_mac = self._get_adapter_mac(device)
-                if adapter_mac and device not in self._reconnectors:
-                    r = Reconnector(device, adapter_mac)
+                if device not in self._reconnectors:
+                    r = Reconnector(device, on_att_ready=partial(self._on_att_ready, device))
                     self._reconnectors[device] = r
                     r.start()
             # Alias may have arrived before Paired — seed it from the full props
@@ -198,6 +252,21 @@ class Scanner:
                 if alias is not None:
                     changes = dict(changes)
                     changes["Alias"] = alias
+
+        if "Connected" in changes:
+            connected_val = changes["Connected"].unpack()
+            if connected_val:
+                # Device reconnected — trigger an immediate ATT attempt.
+                if r := self._reconnectors.get(device):
+                    if r._active:
+                        r._attempt()
+            else:
+                # Device disconnected — tear down ATT and unsubscribe.
+                if r := self._reconnectors.get(device):
+                    r.on_disconnected()
+                if device in self.devices:
+                    self.devices[device].unsubscribe()
+
         # Only create MobileDevice for known paired-or-already-tracked devices.
         if device in self.devices or (paired is not None and paired.unpack()):
             self.devices.setdefault(
