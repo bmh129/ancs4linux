@@ -132,7 +132,13 @@ class Scanner:
             if adapter_mac and path not in self._reconnectors:
                 r = Reconnector(path, adapter_mac)
                 self._reconnectors[path] = r
-                r.start()
+                connected = props.get("Connected", Variant("b", False)).unpack()
+                if connected:
+                    # Already connected (likely BR/EDR). Don't fight the incoming
+                    # BLE connection from advertising; trigger GATT discovery instead.
+                    GLib.timeout_add_seconds(3, partial(self._trigger_gatt_discovery, path))
+                else:
+                    r.start()
 
     def process_object(
         self, path: ObjPath, services: Dict[Str, Dict[Str, Variant]]
@@ -180,6 +186,22 @@ class Scanner:
     ) -> None:
         if interface != BluezDeviceAPI.interface:
             return
+        connected_change = changes.get("Connected")
+        if connected_change is not None and device in self._reconnectors:
+            if connected_change.unpack():
+                # Device connected (incoming BLE via advertising solicitation, or BR/EDR).
+                # Stop the outgoing reconnect loop so it doesn't fight the incoming
+                # connection, then trigger GATT discovery on the existing connection.
+                self._reconnectors[device].stop()
+                GLib.timeout_add_seconds(3, partial(self._trigger_gatt_discovery, device))
+            else:
+                # Device disconnected — restart reconnector if not yet subscribed.
+                is_subscribed = (
+                    device in self.devices
+                    and self.devices[device].communicator is not None
+                )
+                if not is_subscribed:
+                    self._reconnectors[device].start()
         paired = changes.get("Paired")
         if paired is not None and paired.unpack():
             # Newly paired device — check if it's iOS and start reconnector.
@@ -217,6 +239,34 @@ class Scanner:
                 )
             if "Alias" in changes:
                 self.devices[device].set_name(changes["Alias"].unpack())
+
+    def _trigger_gatt_discovery(self, device: ObjPath) -> bool:
+        """Trigger GATT service discovery on an existing (incoming) BLE connection.
+
+        BlueZ only sets ServicesResolved=True automatically for outgoing connections.
+        Calling Connect() on an already-connected device prompts BlueZ to discover
+        GATT services without creating a new LE link (no le-connection-abort-by-local).
+        """
+        if device not in self.property_observers:
+            return False
+        proxy = self.property_observers[device]
+        if device in self._reconnectors:
+            self._reconnectors[device]._set_le_bearer()
+        try:
+            props = proxy.GetAll(BluezDeviceAPI.interface)
+            if not props.get("Connected", Variant("b", False)).unpack():
+                if device in self._reconnectors:
+                    self._reconnectors[device].start()
+                return False
+            if props.get("ServicesResolved", Variant("b", False)).unpack():
+                return False
+            log.info(f"Triggering GATT discovery for {device}")
+            proxy.Connect()
+        except Exception as e:
+            log.debug(f"GATT discovery trigger failed for {device}: {e}")
+            if device in self._reconnectors:
+                self._reconnectors[device].start()
+        return False
 
     def _on_subscribed(self, device: ObjPath) -> None:
         if r := self._reconnectors.get(device):

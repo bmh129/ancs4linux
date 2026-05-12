@@ -105,6 +105,30 @@ If the D-Bus call to show a notification failed after the notification had
 already been dequeued, it was lost with no indication in the logs. The emit
 call is now wrapped so failures are logged rather than silently discarded.
 
+## Fix: LE reconnect conflict with advertising after reboot
+
+After a reboot with an already-paired iPhone, the observer's outgoing
+`Device1.Connect()` loop and the advertising service's incoming BLE solicitation
+were fighting each other. Each time iOS responded to the advertisement and
+initiated an incoming BLE connection, the local controller canceled the observer's
+pending outgoing `LE Create Connection` command with `le-connection-abort-by-local`.
+This loop continued for 10–15 minutes until one side gave up, and even then ANCS
+never subscribed because BlueZ only sets `ServicesResolved=True` automatically for
+outgoing connections — not for incoming ones triggered by advertising.
+
+Fixed by watching the `Connected` property on paired iOS devices:
+
+- When the device becomes connected (incoming BLE or BR/EDR), the outgoing
+  reconnect loop is stopped immediately so it no longer conflicts.
+- A single `Device1.Connect()` call is issued 3 seconds later. On an
+  already-connected device this does not create a new LE link; instead BlueZ
+  performs GATT service discovery on the existing connection, setting
+  `ServicesResolved=True` and unblocking the ANCS subscription.
+- If the device disconnects before services are resolved, the reconnect loop
+  restarts automatically.
+- At startup, devices that are already connected (e.g. via BR/EDR auto-reconnect)
+  go directly to the discovery trigger rather than starting the outgoing loop.
+
 ## Automatic LE reconnect after reboot
 
 After a reboot, BlueZ defaults to using BR/EDR (classic Bluetooth) when
