@@ -12,8 +12,9 @@ A Bluetooth adapter that supports BLE pairing is required. iOS only grants ANCS
 notification access to BLE-bonded accessories — a classic BR/EDR-only bond is
 not sufficient, even if the adapter supports BLE in other respects.
 
-**Known working:** Intel Bluetooth adapters (e.g. Intel BE200) pair via BLE
-correctly and iOS will display the notification-permission prompt after pairing.
+**Known working:** Intel Bluetooth adapters (e.g. Intel BE200, as a built-in
+M.2/PCIe card) pair via BLE correctly and iOS will display the
+notification-permission prompt after pairing.
 
 **Known not working:** Realtek Bluetooth adapters (e.g. the chip used in the
 **TP-Link UB500 Plus**) cannot achieve a BLE bond with an iPhone on Linux.
@@ -22,9 +23,10 @@ firmware negotiates P-192 keys (not P-256/Secure Connections), so cross-transpor
 key derivation (CTKD) cannot derive a BLE bond from the BR/EDR pairing either.
 ANCS authorization is never granted.
 
-If your machine has a Realtek Bluetooth adapter and ANCS is not working, a
-known-good BLE USB dongle (e.g. with a CSR8510 or Intel chipset) plugged in as
-a second adapter is the most reliable fix.
+**USB Bluetooth adapters:** No USB Bluetooth adapter is currently known to work
+with this project on Linux. If you have confirmed a USB adapter that achieves a
+proper BLE bond with an iPhone and receives ANCS notifications, please open an
+issue with the chipset and adapter details.
 
 ## Running
 
