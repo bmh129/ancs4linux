@@ -21,7 +21,9 @@ notification-permission prompt after pairing.
 When discoverable, iOS pairs via classic BR/EDR instead of BLE, and the Realtek
 firmware negotiates P-192 keys (not P-256/Secure Connections), so cross-transport
 key derivation (CTKD) cannot derive a BLE bond from the BR/EDR pairing either.
-ANCS authorization is never granted.
+ANCS authorization is never granted. Note that ANCS may appear to function
+temporarily immediately after the initial pairing, but this is not persistent —
+it will be lost after a reboot.
 
 **USB Bluetooth adapters:** No USB Bluetooth adapter is currently known to work
 with this project on Linux. If you have confirmed a USB adapter that achieves a
