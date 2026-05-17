@@ -240,12 +240,32 @@ class Scanner:
             if "Alias" in changes:
                 self.devices[device].set_name(changes["Alias"].unpack())
 
+    def _ancs_characteristics_present(self, device: ObjPath) -> bool:
+        """Return True if all three ANCS GATT characteristics are already in the D-Bus tree."""
+        try:
+            managed = self.root.GetManagedObjects()
+            found = set()
+            for path, services in managed.items():
+                if BluezGattCharacteristicAPI.interface not in services:
+                    continue
+                if not path.startswith(device):
+                    continue
+                uuid = services[BluezGattCharacteristicAPI.interface].get("UUID")
+                if uuid and uuid.unpack() in ANCS_CHARS:
+                    found.add(uuid.unpack())
+            return all(c in found for c in ANCS_CHARS)
+        except Exception:
+            return False
+
     def _trigger_gatt_discovery(self, device: ObjPath) -> bool:
         """Trigger GATT service discovery on an existing (incoming) BLE connection.
 
         BlueZ only sets ServicesResolved=True automatically for outgoing connections.
         Calling Connect() on an already-connected device prompts BlueZ to discover
         GATT services without creating a new LE link (no le-connection-abort-by-local).
+
+        We check for ANCS characteristics in the D-Bus tree rather than ServicesResolved,
+        because BR/EDR SDP sets ServicesResolved=True before BLE GATT discovery occurs.
         """
         if device not in self.property_observers:
             return False
@@ -258,7 +278,8 @@ class Scanner:
                 if device in self._reconnectors:
                     self._reconnectors[device].start()
                 return False
-            if props.get("ServicesResolved", Variant("b", False)).unpack():
+            if self._ancs_characteristics_present(device):
+                log.debug(f"ANCS characteristics already present for {device}, skipping discovery")
                 return False
             log.info(f"Triggering GATT discovery for {device}")
             proxy.Connect()
