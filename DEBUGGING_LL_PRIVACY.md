@@ -67,7 +67,7 @@ Result: another 41-second timeout.
   cannot disable it.
 
 - **IRK is stored**: `/var/lib/bluetooth/ZZ:ZZ:ZZ:ZZ:ZZ:ZZ/XX:XX:XX:XX:XX:XX/info`
-  contains `[IdentityResolvingKey] Key=<redacted>`. The
+  contains `[IdentityResolvingKey] Key=&lt;redacted&gt;`. The
   controller's Resolving List IS populated and DOES correctly resolve iPhone RPAs to
   the identity address `XX:XX:XX:XX:XX:XX` (confirmed in btmon Device Found events).
   The bug is only in the `LE Create Connection` address type selection.
