@@ -6,36 +6,6 @@ This project lets you receive iOS and iPadOS notifications on your Linux compute
 
 It uses Apple Notification Center Service (ANCS) - the same protocol that smartwatches use. Bluetooth 4.0 (Low Energy) is required.
 
-## Hardware Compatibility
-
-A Bluetooth adapter that supports BLE pairing is required. iOS only grants ANCS
-notification access to BLE-bonded accessories — a classic BR/EDR-only bond is
-not sufficient, even if the adapter supports BLE in other respects.
-
-**Known working:** The following adapters pair via BLE correctly and iOS
-will display the notification-permission prompt after pairing:
-
-- **Intel** M.2/PCIe cards (e.g., Intel BE200)
-- **Qualcomm Atheros QCA6174** combo adapter (802.11ac Wi-Fi + Bluetooth 4.2):
-  the Bluetooth component appears as a USB device (e.g., Lite-On 04CA:3016 in
-  Acer laptops). Qualcomm Bluetooth USB interfaces built into laptops work
-  correctly despite the "USB Bluetooth adapters" caveat below, which applies
-  to external USB dongles only.
-
-**Known not working:** Realtek Bluetooth adapters (e.g. the chip used in the
-**TP-Link UB500 Plus**) cannot achieve a BLE bond with an iPhone on Linux.
-When discoverable, iOS pairs via classic BR/EDR instead of BLE, and the Realtek
-firmware negotiates P-192 keys (not P-256/Secure Connections), so cross-transport
-key derivation (CTKD) cannot derive a BLE bond from the BR/EDR pairing either.
-ANCS authorization is never granted. Note that ANCS may appear to function
-temporarily immediately after the initial pairing, but this is not persistent —
-it will be lost after a reboot.
-
-**USB Bluetooth adapters:** No USB Bluetooth adapter is currently known to work
-with this project on Linux. If you have confirmed a USB adapter that achieves a
-proper BLE bond with an iPhone and receives ANCS notifications, please open an
-issue with the chipset and adapter details.
-
 ## Running
 
 ### Fedora Silverblue

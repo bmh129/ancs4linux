@@ -1,8 +1,5 @@
-import logging
 from dataclasses import dataclass
 from typing import Any, Dict, List, Optional
-
-log = logging.getLogger(__name__)
 
 from ancs4linux.advertising.pairing import PairingManager
 from ancs4linux.common.dbus import (
@@ -154,10 +151,7 @@ class AdvertisingManager:
 
         hci: Any = SystemBus().get_proxy("org.bluez", path)
         self.active_advertisements[hci_address] = HciState.save(hci)
-        try:
-            HciState.advertising(name).restore_on(hci)
-        except Exception as e:
-            log.warning(f"Could not set adapter advertising state on {hci_address}: {e}")
+        HciState.advertising(name).restore_on(hci)
         hci.RegisterAdvertisement("/advertisement", {})
 
     def disable_advertising(self, hci_address: str) -> None:
@@ -173,10 +167,7 @@ class AdvertisingManager:
                 hci.UnregisterAdvertisement("/advertisement")
             except DBusError:
                 pass  # BlueZ may have already expired the advertisement
-            try:
-                original_state.restore_on(hci)
-            except Exception as e:
-                log.warning(f"Could not restore adapter state on {hci_address}: {e}")
+            original_state.restore_on(hci)
 
         if len(self.active_advertisements) == 0:
             self.pairing_manager.disable_if_enabled_automatically()
