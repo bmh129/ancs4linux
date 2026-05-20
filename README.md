@@ -170,6 +170,41 @@ This rule is matched by device name so it only affects the iPhone — other
 Bluetooth audio devices (headphones, speakers) are unaffected. The ANCS
 notification connection runs over BLE and is also unaffected.
 
+## Hardware Compatibility
+
+A Bluetooth adapter that supports BLE pairing is required. iOS only grants ANCS
+notification access to BLE-bonded accessories — a classic BR/EDR-only bond is
+not sufficient, even if the adapter supports BLE in other respects.
+
+**Known working:** The following adapters pair via BLE correctly and iOS
+will display the notification-permission prompt after pairing:
+
+- **Intel** M.2/PCIe cards (e.g., Intel AX210, Intel BE200): recommended.
+  These work reliably with BlueZ's ll-privacy implementation and the iPhone
+  connects automatically after reboot without manual intervention.
+
+**Known unreliable:**
+
+- **Qualcomm Atheros QCA6174** combo adapter (802.11ac Wi-Fi + Bluetooth 4.2):
+  a BlueZ bug with ll-privacy causes outgoing LE connections to always time out
+  (41s each). The intended workaround — having the iPhone connect inward via a
+  solicitation advertisement — did not work reliably in practice. Replacing the
+  card with an Intel AX210 resolved the issue.
+
+**Known not working:** Realtek Bluetooth adapters (e.g. the chip used in the
+**TP-Link UB500 Plus**) cannot achieve a BLE bond with an iPhone on Linux.
+When discoverable, iOS pairs via classic BR/EDR instead of BLE, and the Realtek
+firmware negotiates P-192 keys (not P-256/Secure Connections), so cross-transport
+key derivation (CTKD) cannot derive a BLE bond from the BR/EDR pairing either.
+ANCS authorization is never granted. Note that ANCS may appear to function
+temporarily immediately after the initial pairing, but this is not persistent —
+it will be lost after a reboot.
+
+**USB Bluetooth adapters:** No USB Bluetooth adapter is currently known to work
+with this project on Linux. If you have confirmed a USB adapter that achieves a
+proper BLE bond with an iPhone and receives ANCS notifications, please open an
+issue with the chipset and adapter details.
+
 ## TODO
 
 - [x] Write a systemd user service drop-in (or wrapper script) that runs
