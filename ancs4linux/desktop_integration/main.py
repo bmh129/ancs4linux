@@ -16,6 +16,8 @@ advertising_api: AdvertisingAPI
 observer_api: ObserverAPI
 notification_timeout: int
 notifications: Dict[int, "Notification"] = {}
+# Survives notification_closed so open-url still works after the popup expires.
+host_id_to_app: Dict[int, tuple] = {}
 pairing_notification_id: int = 0
 
 
@@ -47,6 +49,7 @@ class Notification:
             [],
             Int32(notification_timeout),
         )
+        host_id_to_app[self.host_id] = (self.app_id, self.app_name)
         log.debug(f"Shown {self.host_id} from {data.app_name} (app_id={data.app_id}).")
 
     def dismiss(self) -> None:
@@ -104,6 +107,12 @@ def action_clicked(host_id: int, action: str) -> None:
     for notification in notifications.values():
         if notification.host_id == host_id:
             notification.on_action(action)
+            return
+    # Notification already removed from dict (timed out or service restarted) —
+    # fall back to the app lookup so open-url still works.
+    if action == "open-url" and host_id in host_id_to_app:
+        app_id, app_name = host_id_to_app[host_id]
+        open_target(app_id, app_name)
 
 
 def notification_closed(id: int, reason: int) -> None:
