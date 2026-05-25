@@ -174,6 +174,15 @@ EnvironmentFile=-%h/.config/ancs4linux/advertising.env
 WantedBy=default.target
 EOF
 
+# ── ancs4linux-ctl symlink ────────────────────────────────────────────────────
+# Put ancs4linux-ctl on the user's PATH via ~/bin so it can be used without
+# activating the conda environment.
+CTL_LINK="$REAL_HOME/bin/ancs4linux-ctl"
+info "Creating ancs4linux-ctl symlink in ~/bin..."
+install -d -m 755 -o "$REAL_USER" "$REAL_HOME/bin"
+ln -sf "$ENV_BIN/ancs4linux-ctl" "$CTL_LINK"
+chown -h "$REAL_USER" "$CTL_LINK"
+
 # ── WirePlumber config ────────────────────────────────────────────────────────
 # Prevent the iPhone (or any paired Bluetooth phone) from routing audio to this
 # computer. WirePlumber matches on device.icon = "phone" and sets the audio
