@@ -132,43 +132,26 @@ WirePlumber (PipeWire's session manager) will activate these audio profiles,
 causing iPhone audio to route to the computer's speakers and media controls
 to appear in the GNOME notification area.
 
-To prevent this, create a WirePlumber rule that sets the iPhone's Bluetooth
-audio profile to `off`. Replace `your-iphone-name` with your iPhone's Bluetooth
-name (visible in `bluetoothctl devices` or GNOME Bluetooth settings):
+`autorun/install.sh` handles this automatically by installing a WirePlumber
+rule that sets the audio profile to `off` for any paired Bluetooth phone:
+
+```
+~/.config/wireplumber/wireplumber.conf.d/51-disable-phone-audio.conf
+```
+
+The rule matches on `device.icon = "phone"`, which BlueZ sets for any
+Bluetooth phone. Other Bluetooth audio devices (headphones, speakers) are
+unaffected. The ANCS notification connection runs over BLE and is also
+unaffected.
+
+If you installed before this rule was added, install it manually:
 
 ```bash
 mkdir -p ~/.config/wireplumber/wireplumber.conf.d
-```
-
-Create `~/.config/wireplumber/wireplumber.conf.d/51-disable-iphone-audio.conf`
-with the following contents:
-
-```
-monitor.bluez.rules = [
-  {
-    matches = [
-      {
-        device.alias = "your-iphone-name"
-      }
-    ]
-    actions = {
-      update-props = {
-        bluez5.profile = "off"
-      }
-    }
-  }
-]
-```
-
-Then restart WirePlumber:
-
-```bash
+cp autorun/51-disable-phone-audio.conf \
+    ~/.config/wireplumber/wireplumber.conf.d/
 systemctl --user restart wireplumber
 ```
-
-This rule is matched by device name so it only affects the iPhone — other
-Bluetooth audio devices (headphones, speakers) are unaffected. The ANCS
-notification connection runs over BLE and is also unaffected.
 
 ## Hardware Compatibility
 

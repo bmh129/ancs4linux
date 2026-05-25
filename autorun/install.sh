@@ -174,6 +174,27 @@ EnvironmentFile=-%h/.config/ancs4linux/advertising.env
 WantedBy=default.target
 EOF
 
+# ── WirePlumber config ────────────────────────────────────────────────────────
+# Prevent the iPhone (or any paired Bluetooth phone) from routing audio to this
+# computer. WirePlumber matches on device.icon = "phone" and sets the audio
+# profile to "off", so classic BT audio (A2DP/HFP) is suppressed while the BLE
+# ANCS connection is unaffected.
+WP_CONF_DIR="$REAL_HOME/.config/wireplumber/wireplumber.conf.d"
+info "Installing WirePlumber rule to disable Bluetooth phone audio..."
+install -Dm 644 -o "$REAL_USER" "$SCRIPT_DIR/51-disable-phone-audio.conf" \
+    "$WP_CONF_DIR/51-disable-phone-audio.conf"
+
+# Restart WirePlumber if it is already running for this user session.
+WP_RUNTIME="/run/user/$(id -u "$REAL_USER")"
+if sudo -u "$REAL_USER" XDG_RUNTIME_DIR="$WP_RUNTIME" \
+        systemctl --user is-active --quiet wireplumber 2>/dev/null; then
+    info "Restarting WirePlumber..."
+    sudo -u "$REAL_USER" XDG_RUNTIME_DIR="$WP_RUNTIME" \
+        systemctl --user restart wireplumber
+else
+    info "WirePlumber is not running yet — rule will take effect at next login."
+fi
+
 # ── Enable and start ──────────────────────────────────────────────────────────
 info "Reloading systemd daemon..."
 systemctl daemon-reload
