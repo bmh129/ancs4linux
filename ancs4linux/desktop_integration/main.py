@@ -7,6 +7,7 @@ import typer
 from ancs4linux.common.apis import AdvertisingAPI, ObserverAPI, ShowNotificationData
 from ancs4linux.common.dbus import EventLoop, Int32, UInt32
 from ancs4linux.common.external_apis import NotificationAPI
+from ancs4linux.common.url_config import open_target
 
 log = logging.getLogger(__name__)
 app = typer.Typer()
@@ -23,14 +24,19 @@ class Notification:
         self.device_id = id
         self.device_handle: Optional[str] = None
         self.host_id = 0
+        self.app_id = ""
+        self.app_name = ""
 
     def show(self, data: ShowNotificationData) -> None:
         self.device_handle = data.device_handle
+        self.app_id = data.app_id
+        self.app_name = data.app_name
         actions = []
         if data.positive_action is not None:
             actions.extend(["positive-action", data.positive_action])
         if data.negative_action is not None:
             actions.extend(["negative-action", data.negative_action])
+        actions.extend(["open-url", "Open"])
         self.host_id = notification_api.Notify(
             f"{data.app_name} ({data.device_name})",
             UInt32(self.host_id),
@@ -58,6 +64,8 @@ class Notification:
             observer_api.InvokeDeviceAction(
                 self.device_handle, UInt32(self.device_id), False
             )
+        if action == "open-url":
+            open_target(self.app_id, self.app_name)
 
 
 def pairing_confirmation_requested(pin: str) -> None:
