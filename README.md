@@ -188,6 +188,53 @@ with this project on Linux. If you have confirmed a USB adapter that achieves a
 proper BLE bond with an iPhone and receives ANCS notifications, please open an
 issue with the chipset and adapter details.
 
+## Opening a URL or App from a Notification
+
+Every notification includes an **Open** button. Clicking it opens a browser or
+launches an app based on a per-app mapping you configure. If no mapping exists
+for an app, it falls back to a Google "I'm Feeling Lucky" search on the app name.
+
+Mappings are stored in `~/.config/ancs4linux/open_url.json` and managed with
+`ancs4linux-ctl`. You can key a mapping on either the iOS bundle ID (more precise)
+or the human-readable app name — the bundle ID takes priority when both match.
+
+### Setting a URL
+
+```bash
+# By bundle ID
+ancs4linux-ctl set-url --key "com.microsoft.Outlook" --target "https://outlook.com"
+
+# By app name (useful when you don't know the bundle ID)
+ancs4linux-ctl set-url --key "Mail" --target "https://outlook.com"
+```
+
+Common mail targets: `https://outlook.com`, `https://mail.google.com`,
+`https://mail.proton.me`
+
+### Launching a Linux app instead of a URL
+
+Prefix the value with `app://` followed by the command to run:
+
+```bash
+ancs4linux-ctl set-url --key "com.spotify.client" --target "app://spotify"
+
+# Flatpak apps work too
+ancs4linux-ctl set-url --key "com.spotify.client" --target "app://flatpak run com.spotify.Client"
+```
+
+### Listing and removing mappings
+
+```bash
+# Show all configured mappings
+ancs4linux-ctl list-urls
+
+# Remove a mapping (reverts to Google fallback)
+ancs4linux-ctl remove-url --key "com.microsoft.Outlook"
+
+# Debug: show what would be opened for a given app
+ancs4linux-ctl resolve-url --app-id "com.microsoft.Outlook" --app-name "Outlook"
+```
+
 ## TODO
 
 - [x] Write a systemd user service drop-in (or wrapper script) that runs
