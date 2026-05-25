@@ -138,9 +138,9 @@ rule that sets the audio profile to `off` for any paired Bluetooth phone:
 ~/.config/wireplumber/wireplumber.conf.d/51-disable-phone-audio.conf
 ```
 
-The rule matches on `device.icon = "phone"`, which BlueZ sets for any
-Bluetooth phone. Other Bluetooth audio devices (headphones, speakers) are
-unaffected. The ANCS notification connection runs over BLE and is also
+The rule matches on `device.form-factor = "phone"`, which PipeWire exposes
+for any Bluetooth phone. Other Bluetooth audio devices (headphones, speakers)
+are unaffected. The ANCS notification connection runs over BLE and is also
 unaffected.
 
 If you installed before this rule was added, install it manually:
