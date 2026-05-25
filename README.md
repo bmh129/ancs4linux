@@ -197,13 +197,30 @@ Mappings are stored in `~/.config/ancs4linux/open_url.json` and managed with
 `ancs4linux-ctl`. You can key a mapping on either the iOS bundle ID (more precise)
 or the human-readable app name — the bundle ID takes priority when both match.
 
+### Finding an app's bundle ID
+
+To map by bundle ID you first need to know what it is. Trigger a notification
+from the app on your iPhone, then check the service log:
+
+```bash
+journalctl --user -u ancs4linux-desktop-integration --no-pager | grep app_id | tail -20
+```
+
+Each line looks like:
+
+```
+... Shown 42 from Outlook (app_id=com.microsoft.Outlook).
+```
+
+The value in parentheses is the bundle ID to use as the key.
+
 ### Setting a URL
 
 ```bash
-# By bundle ID
+# By bundle ID (more precise — survives an app rename)
 ancs4linux-ctl set-url --key "com.microsoft.Outlook" --target "https://outlook.com"
 
-# By app name (useful when you don't know the bundle ID)
+# By app name (easier when you don't know the bundle ID)
 ancs4linux-ctl set-url --key "Mail" --target "https://outlook.com"
 ```
 
