@@ -47,7 +47,7 @@ class Notification:
             [],
             Int32(notification_timeout),
         )
-        log.debug(f"Shown {self.host_id} from {data.app_name}.")
+        log.debug(f"Shown {self.host_id} from {data.app_name} (app_id={data.app_id}).")
 
     def dismiss(self) -> None:
         if self.host_id != 0:
