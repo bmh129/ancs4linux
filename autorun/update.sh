@@ -56,6 +56,16 @@ info "Found pip at: $ENV_PIP"
 info "Reinstalling ancs4linux package..."
 sudo -u "$REAL_USER" "$ENV_PIP" install -e "$PROJECT_DIR" --quiet
 
+# ── Update WirePlumber config ─────────────────────────────────────────────────
+WIREPLUMBER_CONF_DIR="$REAL_HOME/.config/wireplumber/wireplumber.conf.d"
+WIREPLUMBER_CONF="$WIREPLUMBER_CONF_DIR/51-disable-phone-audio.conf"
+if [ -f "$WIREPLUMBER_CONF" ]; then
+    info "Updating WirePlumber phone audio rule..."
+    cp "$SCRIPT_DIR/51-disable-phone-audio.conf" "$WIREPLUMBER_CONF"
+    chown "$REAL_USER" "$WIREPLUMBER_CONF"
+    sudo -u "$REAL_USER" systemctl --user restart wireplumber
+fi
+
 # ── Restart system services ───────────────────────────────────────────────────
 info "Restarting system services..."
 systemctl restart ancs4linux-observer.service
