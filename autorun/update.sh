@@ -63,7 +63,8 @@ if [ -f "$WIREPLUMBER_CONF" ]; then
     info "Updating WirePlumber phone audio rule..."
     cp "$SCRIPT_DIR/51-disable-phone-audio.conf" "$WIREPLUMBER_CONF"
     chown "$REAL_USER" "$WIREPLUMBER_CONF"
-    sudo -u "$REAL_USER" systemctl --user restart wireplumber
+    WP_RUNTIME="/run/user/$(id -u "$REAL_USER")"
+    sudo -u "$REAL_USER" XDG_RUNTIME_DIR="$WP_RUNTIME" systemctl --user restart wireplumber
 fi
 
 # ── Restart system services ───────────────────────────────────────────────────
