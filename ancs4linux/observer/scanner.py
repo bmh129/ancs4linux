@@ -28,6 +28,7 @@ log = logging.getLogger(__name__)
 
 ANCS_SERVICE_UUID = "7905f431-b5ce-4e99-a40f-4b1e122d00d0"
 LE_RECONNECT_INTERVAL_S = 30
+BREDR_WATCHDOG_S = 15
 
 
 class Reconnector:
@@ -95,6 +96,7 @@ class Scanner:
         self._adapters: Dict[str, BluezAdapterAPI] = {}
         self._adapter_macs: Dict[str, str] = {}
         self._reconnectors: Dict[str, Reconnector] = {}
+        self._bredr_watchdogs: Dict[str, int] = {}
         self._discovery_active: bool = False
 
     def start_observing(self) -> None:
@@ -133,6 +135,9 @@ class Scanner:
                 r = Reconnector(path, adapter_mac)
                 self._reconnectors[path] = r
                 r.start()
+            connected = props.get("Connected", Variant("b", False)).unpack()
+            if connected:
+                self._start_bredr_watchdog(path)
 
     def process_object(
         self, path: ObjPath, services: Dict[Str, Dict[Str, Variant]]
@@ -180,6 +185,12 @@ class Scanner:
     ) -> None:
         if interface != BluezDeviceAPI.interface:
             return
+        connected = changes.get("Connected")
+        if connected is not None and device in self._reconnectors:
+            if connected.unpack():
+                self._start_bredr_watchdog(device)
+            else:
+                self._cancel_bredr_watchdog(device)
         paired = changes.get("Paired")
         if paired is not None and paired.unpack():
             # Newly paired device — check if it's iOS and start reconnector.
@@ -219,9 +230,39 @@ class Scanner:
                 self.devices[device].set_name(changes["Alias"].unpack())
 
     def _on_subscribed(self, device: ObjPath) -> None:
+        self._cancel_bredr_watchdog(device)
         if r := self._reconnectors.get(device):
             r.stop()
         self.stop_discovery()
+
+    def _start_bredr_watchdog(self, device: ObjPath) -> None:
+        self._cancel_bredr_watchdog(device)
+        tid = GLib.timeout_add_seconds(
+            BREDR_WATCHDOG_S, partial(self._on_bredr_watchdog, device)
+        )
+        self._bredr_watchdogs[device] = tid
+        log.debug(f"BR/EDR watchdog started for {device}")
+
+    def _cancel_bredr_watchdog(self, device: ObjPath) -> None:
+        if tid := self._bredr_watchdogs.pop(device, None):
+            GLib.source_remove(tid)
+
+    def _on_bredr_watchdog(self, device: ObjPath) -> bool:
+        self._bredr_watchdogs.pop(device, None)
+        mobile = self.devices.get(device)
+        if mobile and mobile.communicator is not None:
+            return False
+        log.warning(
+            f"Device connected but ANCS not resolved after {BREDR_WATCHDOG_S}s — "
+            f"disconnecting to force LE reconnect: {device}"
+        )
+        proxy = self.property_observers.get(device)
+        if proxy:
+            try:
+                proxy.Disconnect()
+            except Exception as e:
+                log.warning(f"Disconnect failed for {device}: {e}")
+        return False
 
     def _on_unsubscribed(self, device: ObjPath) -> None:
         if r := self._reconnectors.get(device):
@@ -254,6 +295,7 @@ class Scanner:
                 log.warning(f"Could not stop discovery on {path}: {e}")
 
     def remove_observers(self, path: ObjPath, services: List[Str]) -> None:
+        self._cancel_bredr_watchdog(path)
         if path in self.property_observers:
             self.property_observers[path].PropertiesChanged.disconnect()
             del self.property_observers[path]

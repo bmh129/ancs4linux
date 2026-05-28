@@ -1,5 +1,6 @@
 import logging
 import random
+from collections import deque
 from typing import TYPE_CHECKING, Dict, List, Set
 
 import gi  # type: ignore
@@ -36,6 +37,10 @@ class DeviceCommunicator:
         self.notification_queue: List[ShowNotificationData] = []
         self.awaiting_app_names: Set[str] = set()
         self.known_app_names: Dict[str, str] = dict()
+        # ANCS allows only one outstanding control-point request at a time.
+        # Queue entries: (msg_bytes, expects_data_source_response).
+        self._control_point_queue: deque = deque()
+        self._request_in_flight: bool = False
 
     def attach(self) -> None:
         assert self.device.notification_source and self.device.data_source
@@ -43,6 +48,24 @@ class DeviceCommunicator:
         self.device.notification_source.PropertiesChanged.connect(self.on_ns_change)
         self.device.data_source.PropertiesChanged.disconnect()
         self.device.data_source.PropertiesChanged.connect(self.on_ds_change)
+
+    def _queue_to_control_point(self, msg: List[int], expects_response: bool) -> None:
+        self._control_point_queue.append((msg, expects_response))
+        self._pump_control_point()
+
+    def _pump_control_point(self) -> None:
+        while not self._request_in_flight and self._control_point_queue:
+            msg, expects_response = self._control_point_queue.popleft()
+            assert self.device.control_point
+            try:
+                self.device.control_point.WriteValue(msg, {})
+            except Exception as e:
+                log.error(f"Control point write failed: {e}")
+                break
+            if expects_response:
+                self._request_in_flight = True
+                break
+            # PerformNotificationAction: no data source response; loop to send next
 
     def on_ns_change(
         self, interface: str, changes: Dict[str, Variant], invalidated: List[str]
@@ -66,8 +89,7 @@ class DeviceCommunicator:
             get_positive_action=notification.has_positive_action(),
             get_negative_action=notification.has_negative_action(),
         )
-        assert self.device.control_point
-        self.device.control_point.WriteValue(msg.to_list(), {})
+        self._queue_to_control_point(msg.to_list(), expects_response=True)
 
     def on_ds_change(
         self, interface: str, changes: Dict[str, Variant], invalidated: List[str]
@@ -77,12 +99,18 @@ class DeviceCommunicator:
 
         try:
             ev = DataSourceEvent.parse(changes["Value"].unpack())
+            # Clear in-flight before the handler runs so that any follow-up requests
+            # queued inside the handler (e.g. GetAppAttributes from process_queue)
+            # are sent immediately by _pump_control_point.
+            self._request_in_flight = False
             if ev.type == CommandID.GetNotificationAttributes:
                 self.on_notification_attributes(ev.as_notification_attributes())
             elif ev.type == CommandID.GetAppAttributes:
                 self.on_app_attributes(ev.as_app_attributes())
         except Exception as e:
             log.error(f"Failed to handle data source packet: {e}")
+            self._request_in_flight = False
+        self._pump_control_point()
 
     def on_notification_attributes(self, attrs: NotificationAttributes) -> None:
         assert self.device.name
@@ -113,8 +141,7 @@ class DeviceCommunicator:
     def ask_for_app_name(self, app_id: str) -> None:
         self.awaiting_app_names.add(app_id)
         msg = GetAppAttributes(app_id=app_id)
-        assert self.device.control_point
-        self.device.control_point.WriteValue(msg.to_list(), {})
+        self._queue_to_control_point(msg.to_list(), expects_response=True)
         GLib.timeout_add_seconds(5, lambda: self._app_name_timeout(app_id))
 
     def _app_name_timeout(self, app_id: str) -> bool:
@@ -122,6 +149,10 @@ class DeviceCommunicator:
             log.warning(f"App name lookup timed out for {app_id!r}, using app_id as fallback")
             self.awaiting_app_names.discard(app_id)
             self.known_app_names[app_id] = app_id
+            # Unblock the queue in case the iPhone never responded to our GetAppAttributes.
+            # If the response arrives late, on_ds_change will harmlessly clear in_flight again.
+            self._request_in_flight = False
+            self._pump_control_point()
             self.process_queue()
         return False
 
@@ -149,5 +180,5 @@ class DeviceCommunicator:
     def ask_for_action(self, notification_id: int, is_positive: bool) -> None:
         id = (notification_id - self.id) % UINT_MAX  # reverse the global→local mapping before writing to control point
         msg = PerformNotificationAction(notification_id=id, is_positive=is_positive)
-        assert self.device.control_point
-        self.device.control_point.WriteValue(msg.to_list(), {})
+        # PerformNotificationAction has no data source response (ANCS spec §3.3).
+        self._queue_to_control_point(msg.to_list(), expects_response=False)
