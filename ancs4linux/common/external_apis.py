@@ -141,6 +141,11 @@ class BluezDeviceAPI(PropertiesAPI, ABC):
     def Connect(self) -> None:
         pass
 
+    @abstractmethod
+    def Disconnect(self) -> None:
+        pass
+
+
 
 class BluezGattCharacteristicAPI(PropertiesAPI, ABC):
     name = "org.bluez"
