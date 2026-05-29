@@ -76,6 +76,16 @@ Fixed by adding an explicit `[build-system]` and
 `[tool.setuptools.packages.find]` section to `pyproject.toml` that
 restricts discovery to the `ancs4linux` package only.
 
+### Console scripts missing after install
+
+The four `ancs4linux-*` executables (`observer`, `advertising`,
+`desktop-integration`, `ctl`) were declared as entry points in
+`setup.cfg`, which was removed during an earlier cleanup. Without them,
+`pip install` completed silently but created no scripts, causing all
+systemd services to fail at startup with a 203/EXEC error.
+
+Restored by adding a `[project.scripts]` section to `pyproject.toml`.
+
 ### App name timeout fires before request is sent
 
 When a burst of notifications arrived simultaneously, the 5-second
