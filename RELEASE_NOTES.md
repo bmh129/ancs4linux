@@ -63,6 +63,21 @@ paired and services were resolved.
 Fixed by reading the current `Alias` from the full device properties at the
 moment `Paired` fires, so the name is always seeded regardless of signal ordering.
 
+## Bug fixes
+
+### App name timeout fires before request is sent
+
+When a burst of notifications arrived simultaneously, the 5-second
+fallback timer for `GetAppAttributes` was starting when the request was
+added to the control point queue — not when it was actually written to
+the device. Since ANCS only permits one in-flight request at a time, a
+backlog of `GetNotificationAttributes` requests could exhaust the timer
+before the `GetAppAttributes` write even happened, causing the bundle ID
+to be shown as the app name instead of the real display name.
+
+The timer now starts only after the `WriteValue` call succeeds, so the
+full 5 seconds are available for the iPhone to respond.
+
 ## Notification reliability improvements
 
 Four fixes to prevent notifications from being silently dropped.
