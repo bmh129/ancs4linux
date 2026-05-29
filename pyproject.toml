@@ -7,6 +7,12 @@ name = "ancs4linux"
 version = "0.1.0"
 requires-python = ">=3.8"
 
+[project.scripts]
+ancs4linux-observer = "ancs4linux.observer.main:app"
+ancs4linux-advertising = "ancs4linux.advertising.main:app"
+ancs4linux-desktop-integration = "ancs4linux.desktop_integration.main:app"
+ancs4linux-ctl = "ancs4linux.ctl.main:app"
+
 [tool.setuptools.packages.find]
 include = ["ancs4linux*"]
 
