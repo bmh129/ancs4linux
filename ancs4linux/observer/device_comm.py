@@ -1,7 +1,7 @@
 import logging
 import random
 from collections import deque
-from typing import TYPE_CHECKING, Dict, List, Set
+from typing import TYPE_CHECKING, Callable, Dict, List, Optional, Set
 
 import gi  # type: ignore
 
@@ -49,19 +49,23 @@ class DeviceCommunicator:
         self.device.data_source.PropertiesChanged.disconnect()
         self.device.data_source.PropertiesChanged.connect(self.on_ds_change)
 
-    def _queue_to_control_point(self, msg: List[int], expects_response: bool) -> None:
-        self._control_point_queue.append((msg, expects_response))
+    def _queue_to_control_point(
+        self, msg: List[int], expects_response: bool, on_sent: Optional[Callable[[], None]] = None
+    ) -> None:
+        self._control_point_queue.append((msg, expects_response, on_sent))
         self._pump_control_point()
 
     def _pump_control_point(self) -> None:
         while not self._request_in_flight and self._control_point_queue:
-            msg, expects_response = self._control_point_queue.popleft()
+            msg, expects_response, on_sent = self._control_point_queue.popleft()
             assert self.device.control_point
             try:
                 self.device.control_point.WriteValue(msg, {})
             except Exception as e:
                 log.error(f"Control point write failed: {e}")
                 break
+            if on_sent is not None:
+                on_sent()
             if expects_response:
                 self._request_in_flight = True
                 break
@@ -141,8 +145,11 @@ class DeviceCommunicator:
     def ask_for_app_name(self, app_id: str) -> None:
         self.awaiting_app_names.add(app_id)
         msg = GetAppAttributes(app_id=app_id)
-        self._queue_to_control_point(msg.to_list(), expects_response=True)
-        GLib.timeout_add_seconds(5, lambda: self._app_name_timeout(app_id))
+
+        def on_sent() -> None:
+            GLib.timeout_add_seconds(5, lambda: self._app_name_timeout(app_id))
+
+        self._queue_to_control_point(msg.to_list(), expects_response=True, on_sent=on_sent)
 
     def _app_name_timeout(self, app_id: str) -> bool:
         if app_id in self.awaiting_app_names:
