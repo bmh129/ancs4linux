@@ -65,6 +65,17 @@ moment `Paired` fires, so the name is always seeded regardless of signal orderin
 
 ## Bug fixes
 
+### Editable install broken by setuptools flat-layout discovery
+
+Running `update.sh` failed with "Multiple top-level packages discovered
+in a flat-layout" because newer setuptools treats any top-level
+directory — including `autorun/` — as a package candidate and refuses
+to build when more than one is found.
+
+Fixed by adding an explicit `[build-system]` and
+`[tool.setuptools.packages.find]` section to `pyproject.toml` that
+restricts discovery to the `ancs4linux` package only.
+
 ### App name timeout fires before request is sent
 
 When a burst of notifications arrived simultaneously, the 5-second
