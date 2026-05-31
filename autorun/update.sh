@@ -72,11 +72,14 @@ info "Restarting system services..."
 systemctl restart ancs4linux-observer.service
 systemctl restart ancs4linux-advertising.service
 
-cat <<'MSG'
-
-System services restarted. To pick up changes in your current session:
-
-  systemctl --user restart ancs4linux-desktop-integration.service
-  systemctl --user restart ancs4linux-enable-advertising.service
-
-MSG
+# ── Restart user services for the current session ────────────────────────────
+USER_RUNTIME="/run/user/$(id -u "$REAL_USER")"
+if [ -d "$USER_RUNTIME" ]; then
+    info "Restarting user services for current session..."
+    sudo -u "$REAL_USER" XDG_RUNTIME_DIR="$USER_RUNTIME" \
+        systemctl --user restart ancs4linux-desktop-integration.service
+    sudo -u "$REAL_USER" XDG_RUNTIME_DIR="$USER_RUNTIME" \
+        systemctl --user restart ancs4linux-enable-advertising.service
+else
+    info "No active user session found — user services will restart at next login."
+fi

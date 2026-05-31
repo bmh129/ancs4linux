@@ -218,9 +218,36 @@ info "Enabling user services for all users..."
 systemctl --global enable ancs4linux-desktop-integration.service
 systemctl --global enable ancs4linux-enable-advertising.service
 
-cat <<'MSG'
+# ── Start user services for the current session ───────────────────────────────
+USER_RUNTIME="/run/user/$(id -u "$REAL_USER")"
+if [ -d "$USER_RUNTIME" ]; then
+    info "Starting user services for current session..."
+    sudo -u "$REAL_USER" XDG_RUNTIME_DIR="$USER_RUNTIME" systemctl --user daemon-reload
+    sudo -u "$REAL_USER" XDG_RUNTIME_DIR="$USER_RUNTIME" \
+        systemctl --user restart ancs4linux-desktop-integration.service
+    sudo -u "$REAL_USER" XDG_RUNTIME_DIR="$USER_RUNTIME" \
+        systemctl --user restart ancs4linux-enable-advertising.service
+    USER_SERVICES_DONE=true
+else
+    USER_SERVICES_DONE=false
+fi
 
-System services are running. Start the user services for your current session:
+if $USER_SERVICES_DONE; then
+    cat <<'MSG'
+
+Installation complete. All services are running.
+
+To use a custom Bluetooth device name instead of the system hostname, create
+~/.config/ancs4linux/advertising.env containing:
+
+  ANCS4LINUX_DEVICE_NAME=my-laptop
+
+MSG
+else
+    cat <<'MSG'
+
+System services are running. No active user session was found, so start the
+user services manually after logging in:
 
   systemctl --user daemon-reload
   systemctl --user start ancs4linux-desktop-integration.service
@@ -232,3 +259,4 @@ To use a custom Bluetooth device name instead of the system hostname, create
   ANCS4LINUX_DEVICE_NAME=my-laptop
 
 MSG
+fi
