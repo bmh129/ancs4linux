@@ -1,5 +1,7 @@
 # ANCS4Linux
 
+> **This repository has been archived and is no longer maintained.**
+
 > iOS & iPadOS notification service client for GNU/Linux
 
 This project lets you receive iOS and iPadOS notifications on your Linux computer. No jailbreak needed.
