@@ -1,5 +1,20 @@
 # Release Notes
 
+## Bug fix: LE activity disrupts Bluetooth headphone connections
+
+Continuous LE scanning and the periodic iPhone reconnect attempts (every
+30 seconds) could interfere with Bluetooth headphone audio while both
+devices were connected to the same adapter.
+
+The observer now tracks whether any non-ANCS Bluetooth device (e.g.
+headphones) is connected. While such a device is connected, LE discovery
+and iPhone reconnect attempts are paused — the user is likely near the
+computer and the iPhone is unlikely to drop. When the non-ANCS device
+disconnects, discovery and reconnect attempts resume automatically. An
+initial LE scan still runs unconditionally at service startup so the
+iPhone can be found if it was not already connected when the service
+started.
+
 ## iPhone audio routing to computer
 
 When the iPhone pairs and connects, it establishes both a BLE connection for
