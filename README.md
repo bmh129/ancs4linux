@@ -48,14 +48,8 @@ A logout/login is not sufficient if systemd lingering is enabled
 survives logout and keeps its old group credentials — only a full reboot
 restarts it with the updated group membership.
 
-After rebooting, start the user services for your current session (future
-logins start them automatically):
-
-```bash
-systemctl --user daemon-reload
-systemctl --user start ancs4linux-desktop-integration.service
-systemctl --user start ancs4linux-enable-advertising.service
-```
+After rebooting, the user services start automatically on login. No manual
+steps are needed.
 
 ### Updating to a newer version
 
@@ -69,18 +63,11 @@ git pull origin develop
 ```
 
 Then run the update script (requires sudo). It reinstalls the Python package
-into the conda environment (picking up any new dependencies) and restarts the
-system services:
+into the conda environment (picking up any new dependencies), restarts the
+system services, and restarts the user services for your current session:
 
 ```bash
 sudo autorun/update.sh
-```
-
-Finally, restart the user services for your current session:
-
-```bash
-systemctl --user restart ancs4linux-desktop-integration.service
-systemctl --user restart ancs4linux-enable-advertising.service
 ```
 
 By default the Bluetooth device name is your system hostname. To use a custom
