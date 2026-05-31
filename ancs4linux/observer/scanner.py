@@ -98,6 +98,7 @@ class Scanner:
         self._reconnectors: Dict[str, Reconnector] = {}
         self._bredr_watchdogs: Dict[str, int] = {}
         self._discovery_active: bool = False
+        self._non_ancs_connected: int = 0
 
     def start_observing(self) -> None:
         self.root.InterfacesAdded.connect(self.process_object)
@@ -110,8 +111,9 @@ class Scanner:
                     services["org.bluez.Adapter1"]["Address"].unpack()
                 )
             self.process_object(path, services)
-        self._start_discovery()
         self._start_ios_reconnectors(managed)
+        self._start_discovery()
+        self._init_non_ancs_connected(managed)
 
     def _get_adapter_mac(self, device_path: ObjPath) -> Optional[str]:
         adapter_path = "/".join(device_path.split("/")[:-1])
@@ -186,11 +188,14 @@ class Scanner:
         if interface != BluezDeviceAPI.interface:
             return
         connected = changes.get("Connected")
-        if connected is not None and device in self._reconnectors:
-            if connected.unpack():
-                self._start_bredr_watchdog(device)
+        if connected is not None:
+            if device in self._reconnectors:
+                if connected.unpack():
+                    self._start_bredr_watchdog(device)
+                else:
+                    self._cancel_bredr_watchdog(device)
             else:
-                self._cancel_bredr_watchdog(device)
+                self._update_non_ancs_connection(device, connected.unpack())
         paired = changes.get("Paired")
         if paired is not None and paired.unpack():
             # Newly paired device — check if it's iOS and start reconnector.
@@ -269,8 +274,49 @@ class Scanner:
             r.start()
         self._start_discovery()
 
+    def _init_non_ancs_connected(
+        self, managed: Dict[ObjPath, Dict[Str, Dict[Str, Variant]]]
+    ) -> None:
+        for path, services in managed.items():
+            if "org.bluez.Device1" not in services or path in self._reconnectors:
+                continue
+            props = services["org.bluez.Device1"]
+            if props.get("Connected", Variant("b", False)).unpack():
+                self._non_ancs_connected += 1
+        if self._non_ancs_connected > 0:
+            log.info(
+                f"{self._non_ancs_connected} non-ANCS device(s) already connected at startup, "
+                "pausing LE activity"
+            )
+            for r in self._reconnectors.values():
+                r.stop()
+
+    def _update_non_ancs_connection(self, device: ObjPath, connected: bool) -> None:
+        prev = self._non_ancs_connected
+        if connected:
+            self._non_ancs_connected += 1
+        else:
+            self._non_ancs_connected = max(0, self._non_ancs_connected - 1)
+
+        if prev == 0 and self._non_ancs_connected > 0:
+            log.info(f"Non-ANCS device connected ({device}), pausing LE activity")
+            self.stop_discovery()
+            for r in self._reconnectors.values():
+                r.stop()
+        elif prev > 0 and self._non_ancs_connected == 0:
+            log.info("All non-ANCS devices disconnected, resuming LE activity")
+            for dev_path, r in self._reconnectors.items():
+                mobile = self.devices.get(dev_path)
+                if mobile is None or mobile.communicator is None:
+                    r.start()
+            if not any(m.communicator is not None for m in self.devices.values()):
+                self._start_discovery()
+
     def _start_discovery(self) -> None:
         if self._discovery_active:
+            return
+        if self._non_ancs_connected > 0:
+            log.info("Skipping LE discovery: non-ANCS device connected")
             return
         for path, adapter in self._adapters.items():
             try:
