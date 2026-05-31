@@ -183,6 +183,14 @@ This release fixes that with an automatic reconnect loop:
 The BLE advertisement now also includes a `SolicitUUIDs` field with the ANCS
 UUID, which signals iOS that this device is an ANCS notification consumer.
 
+## Automatic user service restart in install.sh and update.sh
+
+Both scripts now detect an active user session (via `/run/user/<uid>`) and
+restart the `ancs4linux-desktop-integration` and `ancs4linux-enable-advertising`
+user services automatically. No manual `systemctl --user restart` step is
+needed after running either script. If no session is found (e.g. running
+over SSH before first login), a message is printed with the manual steps.
+
 ## Fedora Silverblue install notes
 
 ### Reboot required after install when systemd lingering is enabled
